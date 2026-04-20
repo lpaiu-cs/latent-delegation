@@ -6,7 +6,8 @@ import torch
 
 from src.models.adapters import EntryProjector, LowRankAdapter
 from src.models.backbone_loader import load_backbones
-from src.models.hybrid_gemma import HybridDelegationModel
+from src.models.baselines import BridgeOnlyParamMatchedModel
+from src.models.hybrid_gemma import HybridDelegationModel, HybridNoSmallModel
 from src.utils.io import load_config
 
 
@@ -48,3 +49,49 @@ def test_adapters_preserve_incoming_activation_dtype() -> None:
 
     assert projected.dtype == torch.bfloat16
     assert returned.dtype == torch.bfloat16
+
+
+def test_hybrid_no_small_uses_identity_small_path_and_preserves_shapes() -> None:
+    config = load_config(Path("configs/debug_tiny.yaml"))
+    backbones = load_backbones(config)
+    model = HybridNoSmallModel(config, backbones.large_model, backbones.small_model).to(backbones.device)
+
+    batch = backbones.tokenizer(
+        ["hybrid no small control"],
+        return_tensors="pt",
+        padding="max_length",
+        truncation=True,
+        max_length=config.training.seq_len,
+    )
+    outputs = model(
+        batch["input_ids"].to(backbones.device),
+        attention_mask=batch["attention_mask"].to(backbones.device),
+    )
+
+    assert outputs.projected_small_hidden is not None
+    assert outputs.delegated_small_hidden is not None
+    assert outputs.projected_small_hidden.shape == outputs.delegated_small_hidden.shape
+    assert torch.allclose(outputs.projected_small_hidden, outputs.delegated_small_hidden)
+    assert outputs.hidden_after_removed.shape[-1] == config.model.debug_large_hidden_size
+
+
+def test_bridge_only_param_matched_forward_shapes_debug_tiny() -> None:
+    config = load_config(Path("configs/debug_tiny.yaml"))
+    backbones = load_backbones(config, load_large=True, load_small=False)
+    model = BridgeOnlyParamMatchedModel(config, backbones.large_model, rank=3).to(backbones.device)
+
+    batch = backbones.tokenizer(
+        ["parameter matched bridge control"],
+        return_tensors="pt",
+        padding="max_length",
+        truncation=True,
+        max_length=config.training.seq_len,
+    )
+    outputs = model(
+        batch["input_ids"].to(backbones.device),
+        attention_mask=batch["attention_mask"].to(backbones.device),
+    )
+
+    assert outputs.delta_large is not None
+    assert outputs.delta_large.shape[-1] == config.model.debug_large_hidden_size
+    assert outputs.hidden_after_removed.shape[-1] == config.model.debug_large_hidden_size

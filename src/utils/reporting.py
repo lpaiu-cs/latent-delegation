@@ -121,10 +121,93 @@ def _format_smoke_section(smoke_payload: dict[str, Any] | None) -> str:
     return "\n".join(lines)
 
 
-def _format_pilot_section(pilot_payload: dict[str, Any] | None, blocked_message: str) -> str:
-    if pilot_payload is None:
-        return blocked_message
-    return "\n".join([f"- {key}: {value}" for key, value in pilot_payload.items()])
+def _format_milestone_snapshot(
+    smoke_payload: dict[str, Any] | None,
+    stage_a_payload: dict[str, Any] | None,
+    stage_b_payload: dict[str, Any] | None,
+    ablation_payload: dict[str, Any] | None,
+) -> str:
+    lines: list[str] = []
+    if smoke_payload is None:
+        lines.append("- Smoke: Not run.")
+    else:
+        lines.append(
+            "- Smoke: "
+            f"overall_success={smoke_payload.get('overall_success')}, "
+            f"completed_cases={smoke_payload.get('completed_cases', len(smoke_payload.get('results', [])))}/"
+            f"{smoke_payload.get('expected_cases', EXPECTED_SMOKE_CASES)}, "
+            f"largest_full_large_seq_len={_largest_successful_seq_len(smoke_payload, 'full_large_forward')}, "
+            f"largest_skip_only_seq_len={_largest_successful_seq_len(smoke_payload, 'skip_only_forward')}, "
+            f"largest_bridge_only_seq_len={_largest_successful_seq_len(smoke_payload, 'bridge_only_forward')}, "
+            f"largest_hybrid_seq_len={_largest_successful_seq_len(smoke_payload, 'hybrid_forward')}."
+        )
+    if stage_a_payload is None:
+        lines.append("- Stage A: Not run.")
+    else:
+        lines.append(
+            "- Stage A: "
+            f"train_loss_start={stage_a_payload.get('train_loss_start')}, "
+            f"train_loss_end={stage_a_payload.get('train_loss_end')}, "
+            f"heldout_mse_before={stage_a_payload.get('heldout_mse_before')}, "
+            f"heldout_mse_after={stage_a_payload.get('heldout_mse_after')}, "
+            f"heldout_cosine_before={stage_a_payload.get('heldout_cosine_before')}, "
+            f"heldout_cosine_after={stage_a_payload.get('heldout_cosine_after')}, "
+            f"heldout_alignment_improved={stage_a_payload.get('heldout_alignment_improved')}."
+        )
+    if stage_b_payload is None:
+        lines.append("- Stage B: Not run.")
+    else:
+        lines.append(
+            "- Stage B: "
+            f"skip_only_hidden_mse={stage_b_payload.get('skip_only_hidden_mse')}, "
+            f"skip_only_cosine={stage_b_payload.get('skip_only_cosine')}, "
+            f"bridge_only_hidden_mse={stage_b_payload.get('bridge_only_hidden_mse')}, "
+            f"bridge_only_cosine={stage_b_payload.get('bridge_only_cosine')}, "
+            f"hybrid_hidden_mse={stage_b_payload.get('hybrid_hidden_mse')}, "
+            f"hybrid_cosine={stage_b_payload.get('hybrid_cosine')}, "
+            f"hybrid_beats_skip_only={stage_b_payload.get('hybrid_beats_skip_only')}, "
+            f"hybrid_beats_bridge_only={stage_b_payload.get('hybrid_beats_bridge_only')}."
+        )
+    if ablation_payload is not None:
+        pairwise_wins = ablation_payload.get("summary", {}).get("pairwise_wins", {})
+        lines.append(
+            "- Stage B ablation: "
+            f"hybrid_vs_skip_only_wins={pairwise_wins.get('skip_only', {}).get('hybrid_wins_on_both_metrics')}/"
+            f"{pairwise_wins.get('skip_only', {}).get('seeds')}, "
+            f"hybrid_vs_hybrid_no_small_wins={pairwise_wins.get('hybrid_no_small', {}).get('hybrid_wins_on_both_metrics')}/"
+            f"{pairwise_wins.get('hybrid_no_small', {}).get('seeds')}, "
+            f"hybrid_vs_bridge_only_wins={pairwise_wins.get('bridge_only', {}).get('hybrid_wins_on_both_metrics')}/"
+            f"{pairwise_wins.get('bridge_only', {}).get('seeds')}, "
+            f"hybrid_vs_param_matched_bridge_wins={pairwise_wins.get('bridge_only_param_matched', {}).get('hybrid_wins_on_both_metrics')}/"
+            f"{pairwise_wins.get('bridge_only_param_matched', {}).get('seeds')}."
+        )
+    return "\n".join(lines)
+
+
+def _format_parameter_audit(parameter_audit_payload: dict[str, Any] | None) -> str:
+    if parameter_audit_payload is None:
+        return "Parameter audit not run."
+    lines = [f"- Config: {parameter_audit_payload.get('config_path')}"]
+    for label in ("skip_only", "bridge_only", "hybrid"):
+        summary = parameter_audit_payload.get("models", {}).get(label)
+        if summary is None:
+            continue
+        trainable_modules = ", ".join(summary.get("trainable_modules", [])) or "none"
+        extra_bits = []
+        if "bridge_rank" in summary:
+            extra_bits.append(f"bridge_rank={summary['bridge_rank']}")
+        if "return_adapter_rank" in summary:
+            extra_bits.append(f"return_adapter_rank={summary['return_adapter_rank']}")
+        if "gate_init" in summary:
+            extra_bits.append(f"gate_init={summary['gate_init']}")
+        extras = f" ({', '.join(extra_bits)})" if extra_bits else ""
+        lines.append(
+            f"- {label}{extras}: total_params={summary.get('total_params')}, "
+            f"trainable_params={summary.get('trainable_params')}, "
+            f"frozen_params={summary.get('frozen_params')}, "
+            f"trainable_modules={trainable_modules}"
+        )
+    return "\n".join(lines)
 
 
 def write_real_hardware_report(
@@ -134,6 +217,8 @@ def write_real_hardware_report(
     smoke_path: str | Path = "artifacts/real_gemma_smoke.json",
     stage_a_path: str | Path = "artifacts/stage_a_pilot_metrics.json",
     stage_b_path: str | Path = "artifacts/stage_b_pilot_metrics.json",
+    parameter_audit_path: str | Path = "artifacts/milestone_parameter_audit.json",
+    stage_b_ablation_path: str | Path = "artifacts/stage_b_ablation_results.json",
     blockers: list[str] | None = None,
     next_action: str | None = None,
 ) -> None:
@@ -143,12 +228,14 @@ def write_real_hardware_report(
     smoke_payload = _load_json_if_exists(smoke_path)
     stage_a_payload = _load_json_if_exists(stage_a_path)
     stage_b_payload = _load_json_if_exists(stage_b_path)
+    parameter_audit_payload = _load_json_if_exists(parameter_audit_path)
+    stage_b_ablation_payload = _load_json_if_exists(stage_b_ablation_path)
 
     target_environment, auth_status = _format_env_section(env_payload)
     diagnosis_code, diagnosis_text = _diagnosis(env_payload, smoke_payload)
     smoke_results = _format_smoke_section(smoke_payload)
-    stage_a_results = _format_pilot_section(stage_a_payload, "Not run.")
-    stage_b_results = _format_pilot_section(stage_b_payload, "Not run.")
+    milestone_snapshot = _format_milestone_snapshot(smoke_payload, stage_a_payload, stage_b_payload, stage_b_ablation_payload)
+    parameter_audit = _format_parameter_audit(parameter_audit_payload)
 
     blocker_lines = blockers[:] if blockers else []
     if env_payload is not None and not env_payload.get("overall_pass", False):
@@ -161,6 +248,12 @@ def write_real_hardware_report(
         blocker_lines.append("Stage A pilot did not improve held-out large-to-small alignment.")
     if stage_b_payload is not None and not stage_b_payload.get("positive_pilot", False):
         blocker_lines.append("Stage B pilot did not beat skip-only on the held-out hidden recovery metrics.")
+    if stage_b_ablation_payload is not None:
+        pairwise_wins = stage_b_ablation_payload.get("summary", {}).get("pairwise_wins", {})
+        if pairwise_wins.get("bridge_only", {}).get("hybrid_wins_on_both_metrics", 0) < 2:
+            blocker_lines.append("Stage B ablation did not show a reproducible win over the original bridge-only control.")
+        if pairwise_wins.get("bridge_only_param_matched", {}).get("hybrid_wins_on_both_metrics", 0) < 2:
+            blocker_lines.append("Stage B ablation did not show a reproducible win over the parameter-matched bridge-only control.")
     if not blocker_lines:
         blocker_lines.append("No blocker recorded.")
 
@@ -179,6 +272,14 @@ def write_real_hardware_report(
             next_action = "Run `scripts\\run_stage_b_pilot.ps1` with the Stage A pilot checkpoint."
         elif not stage_b_payload.get("positive_pilot", False):
             next_action = "Do not start Stage C. Investigate why the Stage B pilot failed to beat skip-only."
+        elif stage_b_ablation_payload is not None:
+            pairwise_wins = stage_b_ablation_payload.get("summary", {}).get("pairwise_wins", {})
+            bridge_wins = pairwise_wins.get("bridge_only", {}).get("hybrid_wins_on_both_metrics", 0)
+            param_wins = pairwise_wins.get("bridge_only_param_matched", {}).get("hybrid_wins_on_both_metrics", 0)
+            if bridge_wins >= 2 and param_wins >= 2:
+                next_action = "Stage B ablation cleared the stronger bridge controls. Stage C is now justified on the current evidence."
+            else:
+                next_action = "Do not start Stage C yet. The delegated path is active and beats skip-only and hybrid_no_small, but the three-seed ablation still leaves bridge-only as the stronger control."
         elif not stage_b_payload.get("hybrid_beats_bridge_only", False):
             next_action = "Do not start Stage C yet. Record that the hybrid beats skip-only at seq_len 256 but does not clearly beat bridge-only, then decide whether to tune Stage B or keep bridge-only as the stronger baseline."
         else:
@@ -220,13 +321,13 @@ def write_real_hardware_report(
                 ]
             ),
             "",
-            "## 6. Stage A pilot results",
+            "## 6. milestone snapshot",
             "",
-            stage_a_results,
+            milestone_snapshot,
             "",
-            "## 7. Stage B pilot results",
+            "## 7. parameter audit",
             "",
-            stage_b_results,
+            parameter_audit,
             "",
             "## 8. blockers",
             "",

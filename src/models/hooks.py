@@ -16,6 +16,7 @@ class ParameterSummary:
 
     total_params: int
     trainable_params: int
+    frozen_params: int
 
 
 def count_parameters(module: nn.Module) -> ParameterSummary:
@@ -23,7 +24,7 @@ def count_parameters(module: nn.Module) -> ParameterSummary:
 
     total = sum(parameter.numel() for parameter in module.parameters())
     trainable = sum(parameter.numel() for parameter in module.parameters() if parameter.requires_grad)
-    return ParameterSummary(total_params=total, trainable_params=trainable)
+    return ParameterSummary(total_params=total, trainable_params=trainable, frozen_params=total - trainable)
 
 
 def assert_split_fits_model(config: ExperimentConfig, large_num_layers: int, small_num_layers: int) -> None:

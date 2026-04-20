@@ -6,7 +6,7 @@ import torch
 from torch import nn
 
 from src.models.adapters import LowRankAdapter, ScalarGate
-from src.models.hybrid_gemma import GemmaCausalLMRunner, HybridForwardOutput, _module_device
+from src.models.hybrid_gemma import GemmaCausalLMRunner, HybridForwardOutput, _module_device, _resolve_gate_value
 from src.utils.io import ExperimentConfig
 
 
@@ -62,10 +62,10 @@ class SkipOnlyLargeModel(nn.Module):
         )
 
 
-class BridgeOnlyLargeModel(nn.Module):
-    """Large-only learned low-rank bridge baseline."""
+class _BridgeOnlyLargeBase(nn.Module):
+    """Shared large-only bridge baseline implementation."""
 
-    def __init__(self, config: ExperimentConfig, large_model: nn.Module) -> None:
+    def __init__(self, config: ExperimentConfig, large_model: nn.Module, rank: int) -> None:
         super().__init__()
         self.config = config
         self.large_model = large_model
@@ -73,20 +73,26 @@ class BridgeOnlyLargeModel(nn.Module):
         self.bridge = LowRankAdapter(
             input_dim=self.large_runner.hidden_size,
             output_dim=self.large_runner.hidden_size,
-            rank=config.adapters.bridge_rank,
+            rank=rank,
         )
         self.gate = ScalarGate(init_value=config.adapters.gate_init)
         adapter_device = _module_device(large_model)
         self.bridge.to(adapter_device)
         self.gate.to(adapter_device)
 
-    def forward(self, input_ids: torch.Tensor, attention_mask: torch.Tensor | None = None) -> HybridForwardOutput:
+    def forward(
+        self,
+        input_ids: torch.Tensor,
+        attention_mask: torch.Tensor | None = None,
+        gate_override: float | None = None,
+    ) -> HybridForwardOutput:
         state = self.large_runner.prepare_from_input_ids(input_ids, attention_mask=attention_mask)
         with torch.no_grad():
             state = self.large_runner.run_layers(state, start=0, end=self.config.split.large_prefix_end)
             hidden_after_prefix = state.hidden_states.detach()
         delta_large = self.bridge(hidden_after_prefix)
-        hidden_after_removed = hidden_after_prefix + self.gate(delta_large)
+        gated_delta_large, gate_value = _resolve_gate_value(self.gate, delta_large, gate_override=gate_override)
+        hidden_after_removed = hidden_after_prefix + gated_delta_large
         bridged_state = state.with_hidden(hidden_after_removed)
         bridged_state = self.large_runner.run_layers(
             bridged_state,
@@ -101,4 +107,19 @@ class BridgeOnlyLargeModel(nn.Module):
             hidden_after_removed=hidden_after_removed,
             final_hidden=final_hidden,
             delta_large=delta_large,
+            gate_value=gate_value,
         )
+
+
+class BridgeOnlyLargeModel(_BridgeOnlyLargeBase):
+    """Large-only learned low-rank bridge baseline."""
+
+    def __init__(self, config: ExperimentConfig, large_model: nn.Module) -> None:
+        super().__init__(config, large_model, rank=config.adapters.bridge_rank)
+
+
+class BridgeOnlyParamMatchedModel(_BridgeOnlyLargeBase):
+    """Large-only low-rank bridge with a trainable budget matched to the hybrid Stage B path."""
+
+    def __init__(self, config: ExperimentConfig, large_model: nn.Module, rank: int) -> None:
+        super().__init__(config, large_model, rank=rank)

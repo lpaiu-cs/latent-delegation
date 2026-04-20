@@ -84,11 +84,18 @@ If the smoke matrix clears far enough for pilot work, use the native wrappers:
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\run_stage_a_pilot.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\run_stage_b_pilot.ps1 -StageACheckpoint .\artifacts\stage_a_pilot_ckpt\stage_a_checkpoint.pt
+powershell -ExecutionPolicy Bypass -File .\scripts\run_stage_b_ablation.ps1 -StageACheckpoint .\artifacts\stage_a_pilot_ckpt\stage_a_checkpoint.pt
+```
+
+To refresh the milestone snapshot and Stage B parameter audit in the hardware report:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\write_milestone_snapshot.ps1
 ```
 
 ## Important access note
 
-The default Gemma repositories are gated on Hugging Face. On this machine, `google/gemma-2-2b` returned `401 Unauthorized` until authenticated access is provided.
+The default Gemma repositories are gated on Hugging Face. If the account is not authorized for Gemma, model downloads can fail with `401` or `403` responses.
 
 Before real Gemma runs, make sure:
 

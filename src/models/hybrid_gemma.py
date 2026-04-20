@@ -39,6 +39,8 @@ class HybridForwardOutput:
     final_hidden: torch.Tensor
     delta_large: torch.Tensor | None = None
     delegated_small_hidden: torch.Tensor | None = None
+    projected_small_hidden: torch.Tensor | None = None
+    gate_value: float | None = None
 
 
 class GemmaCausalLMRunner:
@@ -147,6 +149,14 @@ def _module_device(module: nn.Module) -> torch.device:
     return torch.device("cpu")
 
 
+def _resolve_gate_value(gate: ScalarGate, delta_large: torch.Tensor, gate_override: float | None = None) -> tuple[torch.Tensor, float]:
+    if gate_override is not None:
+        gate_value = torch.tensor(float(gate_override), dtype=delta_large.dtype, device=delta_large.device)
+    else:
+        gate_value = gate.value().to(delta_large.dtype)
+    return gate_value * delta_large, float(gate_value.detach().cpu())
+
+
 class HybridDelegationModel(nn.Module):
     """Large-prefix -> small delegated block -> large suffix hybrid."""
 
@@ -181,7 +191,31 @@ class HybridDelegationModel(nn.Module):
         assert self.config.split.large_removed_start == self.config.split.large_prefix_end + 1
         assert self.config.split.small_delegate_start == self.config.split.small_entry_target_layer + 1
 
-    def forward(self, input_ids: torch.Tensor, attention_mask: torch.Tensor | None = None) -> HybridForwardOutput:
+    def run_delegated_small_block(
+        self,
+        projected_small: torch.Tensor,
+        attention_mask: torch.Tensor,
+    ) -> torch.Tensor:
+        """Run the configured delegated small-model layer window."""
+
+        small_state = self.small_runner.prepare_from_hidden(
+            hidden_states=projected_small,
+            attention_mask=attention_mask,
+            apply_input_scaling=False,
+        )
+        small_state = self.small_runner.run_layers(
+            small_state,
+            start=self.config.split.small_delegate_start,
+            end=self.config.split.small_delegate_end,
+        )
+        return small_state.hidden_states
+
+    def forward(
+        self,
+        input_ids: torch.Tensor,
+        attention_mask: torch.Tensor | None = None,
+        gate_override: float | None = None,
+    ) -> HybridForwardOutput:
         large_prefix_state = self.large_runner.prepare_from_input_ids(input_ids, attention_mask=attention_mask)
         with torch.no_grad():
             large_prefix_state = self.large_runner.run_layers(
@@ -193,21 +227,12 @@ class HybridDelegationModel(nn.Module):
 
         projected_small = self.entry_projector(hidden_after_prefix)
         assert_hidden_size(self.small_runner.hidden_size, projected_small, "entry_projector")
-        small_state = self.small_runner.prepare_from_hidden(
-            hidden_states=projected_small,
-            attention_mask=large_prefix_state.attention_mask_2d,
-            apply_input_scaling=False,
-        )
-        small_state = self.small_runner.run_layers(
-            small_state,
-            start=self.config.split.small_delegate_start,
-            end=self.config.split.small_delegate_end,
-        )
-        delegated_small_hidden = small_state.hidden_states
+        delegated_small_hidden = self.run_delegated_small_block(projected_small, large_prefix_state.attention_mask_2d)
 
         delta_large = self.return_adapter(delegated_small_hidden)
         assert_hidden_size(self.large_runner.hidden_size, delta_large, "return_adapter")
-        hidden_after_removed = hidden_after_prefix + self.gate(delta_large)
+        gated_delta_large, gate_value = _resolve_gate_value(self.gate, delta_large, gate_override=gate_override)
+        hidden_after_removed = hidden_after_prefix + gated_delta_large
 
         suffix_state = large_prefix_state.with_hidden(hidden_after_removed)
         suffix_state = self.large_runner.run_layers(
@@ -224,4 +249,18 @@ class HybridDelegationModel(nn.Module):
             final_hidden=final_hidden,
             delta_large=delta_large,
             delegated_small_hidden=delegated_small_hidden,
+            projected_small_hidden=projected_small,
+            gate_value=gate_value,
         )
+
+
+class HybridNoSmallModel(HybridDelegationModel):
+    """Hybrid control that keeps the interface modules but removes delegated small layers."""
+
+    def run_delegated_small_block(
+        self,
+        projected_small: torch.Tensor,
+        attention_mask: torch.Tensor,
+    ) -> torch.Tensor:
+        del attention_mask
+        return projected_small
