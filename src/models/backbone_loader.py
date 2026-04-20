@@ -2,11 +2,19 @@
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Any
 
 import torch
 from torch import nn
+
+# Keep the Windows-native path on PyTorch only. The installed Transformers build
+# otherwise probes TensorFlow/Flax during model imports and slows or blocks
+# bring-up on this machine.
+os.environ.setdefault("USE_TF", "0")
+os.environ.setdefault("USE_FLAX", "0")
+
 from transformers import AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig, Gemma2Config, Gemma2ForCausalLM
 
 from src.models.hooks import assert_split_fits_model
@@ -224,7 +232,7 @@ def _assert_family(model: nn.Module, expected_family: str, model_name: str) -> N
 def _load_real_backbone(model_name: str, config: ExperimentConfig, device: torch.device) -> nn.Module:
     kwargs: dict[str, Any] = {
         "trust_remote_code": config.model.trust_remote_code,
-        "torch_dtype": _torch_dtype(config.model.torch_dtype),
+        "dtype": _torch_dtype(config.model.torch_dtype),
         "low_cpu_mem_usage": True,
     }
     quant_config = _quantization_config(config)

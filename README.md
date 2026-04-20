@@ -37,7 +37,7 @@ Implemented baselines:
 
 Recommended:
 
-- Python `3.11`
+- Python `3.12`
 - single GPU for real Gemma runs
 
 This repo includes a debug smoke path that does not require Gemma weights.
@@ -54,6 +54,36 @@ Or:
 
 ```bash
 make install
+```
+
+## Windows-native quick start
+
+Native Windows PowerShell is the default execution path on this machine.
+
+Create or update the environment:
+
+```powershell
+py -3.12 -m pip install --upgrade pip
+py -3.12 -m pip install -r requirements.txt
+```
+
+Environment and auth sanity:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\env_sanity.ps1
+```
+
+Real Gemma smoke matrix:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\real_gemma_smoke.ps1
+```
+
+If the smoke matrix clears far enough for pilot work, use the native wrappers:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\run_stage_a_pilot.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\run_stage_b_pilot.ps1 -StageACheckpoint .\artifacts\stage_a_pilot_ckpt\stage_a_checkpoint.pt
 ```
 
 ## Important access note
@@ -120,6 +150,11 @@ Outputs:
 
 - `artifacts/real_gemma_smoke.json`
 - updated `notes/real_hardware_report.md`
+
+Operational notes for native Windows:
+
+- Hugging Face cache symlink warnings are not blockers; the cache falls back to regular file copies.
+- The PowerShell wrappers set `USE_TF=0` and `USE_FLAX=0` so `transformers` stays on the PyTorch path.
 
 ## Exact training commands
 
@@ -228,6 +263,12 @@ Or:
 
 ```bash
 make test PYTHON=.venv/bin/python
+```
+
+On Windows:
+
+```powershell
+py -3.12 -m pytest -q
 ```
 
 ## Expected outputs

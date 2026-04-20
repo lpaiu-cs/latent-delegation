@@ -12,3 +12,10 @@ def test_debug_config_loads() -> None:
     assert config.split.large_prefix_end == 23
     assert config.split.small_delegate_end == 19
     assert config.training.seq_len == 32
+
+
+def test_pilot_config_loads() -> None:
+    config = load_config(Path("configs/gemma2_conservative_pilot_256.yaml"))
+    assert config.training.seq_len == 256
+    assert config.training.stage_a.max_steps == 200
+    assert config.training.stage_b.max_steps == 200

@@ -19,7 +19,7 @@ class RMSNorm(nn.Module):
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
         variance = hidden_states.pow(2).mean(dim=-1, keepdim=True)
         normalized = hidden_states * torch.rsqrt(variance + self.eps)
-        return normalized * self.weight
+        return normalized * self.weight.to(normalized.dtype)
 
 
 class EntryProjector(nn.Module):
@@ -37,7 +37,10 @@ class EntryProjector(nn.Module):
         self.norm = RMSNorm(output_dim, eps=rms_norm_eps) if use_rmsnorm else nn.Identity()
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        return self.norm(self.linear(hidden_states))
+        input_dtype = hidden_states.dtype
+        projected = self.linear(hidden_states.to(self.linear.weight.dtype))
+        projected = self.norm(projected)
+        return projected.to(input_dtype)
 
 
 class LowRankAdapter(nn.Module):
@@ -54,7 +57,11 @@ class LowRankAdapter(nn.Module):
         nn.init.zeros_(self.up.weight)
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        return self.up(self.down(hidden_states))
+        input_dtype = hidden_states.dtype
+        hidden_states = hidden_states.to(self.down.weight.dtype)
+        hidden_states = self.down(hidden_states)
+        hidden_states = self.up(hidden_states)
+        return hidden_states.to(input_dtype)
 
 
 class ScalarGate(nn.Module):
@@ -68,4 +75,4 @@ class ScalarGate(nn.Module):
         return torch.tanh(self.raw_gate)
 
     def forward(self, delta: torch.Tensor) -> torch.Tensor:
-        return self.value() * delta
+        return self.value().to(delta.dtype) * delta

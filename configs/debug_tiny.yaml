@@ -40,7 +40,7 @@ adapters:
   entry_projector: affine
   return_adapter_rank: 16
   bridge_rank: 16
-  gate_init: 0.0
+  gate_init: 0.01
   use_rmsnorm_after_entry: true
   rms_norm_eps: 1.0e-6
 

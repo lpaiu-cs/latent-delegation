@@ -1,5 +1,5 @@
 experiment:
-  name: gemma2_conservative
+  name: gemma2_conservative_pilot_256
   output_root: outputs
 
 model:
@@ -38,18 +38,18 @@ training:
   seed: 42
   seq_len: 256
   micro_batch_size: 1
-  grad_accum_steps: 32
+  grad_accum_steps: 8
   num_workers: 0
   learning_rate: 3.0e-4
   weight_decay: 0.0
   max_grad_norm: 1.0
-  log_every: 5
+  log_every: 10
   stage_a:
-    max_steps: 100
-    save_every: 50
+    max_steps: 200
+    save_every: 200
   stage_b:
-    max_steps: 100
-    save_every: 50
+    max_steps: 200
+    save_every: 200
   stage_c:
     max_steps: 100
     save_every: 50
@@ -60,9 +60,9 @@ training:
 data:
   use_synthetic_data: false
   cache_dir: outputs/cache
-  train_wikitext_examples: 512
-  train_gsm8k_examples: 256
-  val_wikitext_examples: 128
+  train_wikitext_examples: 128
+  train_gsm8k_examples: 64
+  val_wikitext_examples: 32
   gsm8k_eval_examples: 200
   strategyqa_eval_examples: 200
   synthetic_text_repeats: 32

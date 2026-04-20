@@ -1,0 +1,17 @@
+param(
+    [string]$Config = "configs/gemma2_conservative_pilot_256.yaml",
+    [string]$OutputDir = "artifacts/stage_a_pilot_ckpt"
+)
+
+$ErrorActionPreference = "Stop"
+$env:USE_TF = "0"
+$env:USE_FLAX = "0"
+$env:HF_HUB_DISABLE_PROGRESS_BARS = "1"
+
+python -m src.pilots.stage_a_pilot `
+    --config $Config `
+    --output-dir $OutputDir `
+    --metrics-path "artifacts/stage_a_pilot_metrics.json" `
+    --history-path "artifacts/stage_a_pilot_history.csv"
+
+python -c "from src.utils.reporting import write_real_hardware_report; write_real_hardware_report('notes/real_hardware_report.md')"

@@ -26,6 +26,7 @@ FORWARD_CASE_TO_VARIANT = {
     "hybrid_forward": "hybrid",
 }
 FORWARD_SEQ_LENS = (64, 128, 256)
+EXPECTED_CASES = len(LOAD_ONLY_CASES) + len(FORWARD_CASE_TO_VARIANT) * len(FORWARD_SEQ_LENS)
 
 
 def parse_args() -> argparse.Namespace:
@@ -138,19 +139,51 @@ def main() -> None:
     seed_everything(42)
 
     results: list[dict[str, Any]] = []
+    ensure_dir(Path(args.output_path).parent)
+    save_json(
+        args.output_path,
+        {
+            "config_path": args.config,
+            "expected_cases": EXPECTED_CASES,
+            "completed_cases": 0,
+            "overall_success": False,
+            "results": results,
+        },
+    )
     for case in LOAD_ONLY_CASES:
         results.append(_run_single_case(args.config, case, seq_len=None, batch_size=1))
+        save_json(
+            args.output_path,
+            {
+                "config_path": args.config,
+                "expected_cases": EXPECTED_CASES,
+                "completed_cases": len(results),
+                "overall_success": False,
+                "results": results,
+            },
+        )
     for case in FORWARD_CASE_TO_VARIANT:
         for seq_len in FORWARD_SEQ_LENS:
             results.append(_run_single_case(args.config, case, seq_len=seq_len, batch_size=1))
+            save_json(
+                args.output_path,
+                {
+                    "config_path": args.config,
+                    "expected_cases": EXPECTED_CASES,
+                    "completed_cases": len(results),
+                    "overall_success": False,
+                    "results": results,
+                },
+            )
 
     overall_success = all(result["success"] for result in results)
     payload = {
         "config_path": args.config,
+        "expected_cases": EXPECTED_CASES,
+        "completed_cases": len(results),
         "overall_success": overall_success,
         "results": results,
     }
-    ensure_dir(Path(args.output_path).parent)
     save_json(args.output_path, payload)
 
     blockers = [f"{result['case']} seq_len={result['seq_len']} failed: {result['error']}" for result in results if not result["success"]]

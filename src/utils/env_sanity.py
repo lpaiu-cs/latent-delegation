@@ -11,6 +11,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+# Keep non-PyTorch backends disabled for native Windows bring-up.
+os.environ.setdefault("USE_TF", "0")
+os.environ.setdefault("USE_FLAX", "0")
+
 import datasets
 import torch
 import transformers
@@ -114,8 +118,10 @@ def collect_env_sanity(config_path: str) -> dict[str, Any]:
         },
         "gemma_access": gemma_access,
     }
+    quantization_ready = (not config.model.load_in_4bit) or payload["bitsandbytes"]["available"]
     payload["overall_pass"] = bool(
         payload["cuda_available"]
+        and quantization_ready
         and payload["hf_auth"]["token_present"]
         and payload["gemma_access"]["success"]
     )
@@ -133,6 +139,8 @@ def main() -> None:
     blockers: list[str] = []
     if not payload["cuda_available"]:
         blockers.append("CUDA is not available on the current machine.")
+    if load_config(args.config).model.load_in_4bit and not payload["bitsandbytes"]["available"]:
+        blockers.append(f"bitsandbytes is unavailable for the configured 4-bit load path: {payload['bitsandbytes']['error']}")
     if not payload["hf_auth"]["token_present"]:
         blockers.append("No Hugging Face authentication token was detected.")
     if not payload["gemma_access"]["success"]:
