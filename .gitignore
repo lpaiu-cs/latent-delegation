@@ -1,0 +1,44 @@
+# Python bytecode and caches
+__pycache__/
+*.py[cod]
+*.so
+
+# Virtual environments
+.venv/
+venv/
+.python-version
+
+# Test and tool caches
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# Build / packaging
+build/
+dist/
+*.egg-info/
+
+# Local experiment outputs
+outputs/
+artifacts/
+notes/real_hardware_report.md
+
+# Checkpoints and large local artifacts
+*.pt
+*.pth
+*.bin
+*.safetensors
+*.ckpt
+
+# Logs and temp files
+*.log
+*.tmp
+*.swp
+*.swo
+
+# OS/editor files
+.DS_Store
+Thumbs.db
