@@ -295,7 +295,7 @@ def write_real_hardware_report(
             if bridge_wins >= 2 and param_wins >= 2:
                 next_action = "Stage B ablation cleared the stronger bridge controls. Stage C is now justified on the current evidence."
             else:
-                next_action = "Do not start Stage C yet. The delegated path is active and beats skip-only and hybrid_no_small, but the three-seed ablation still leaves bridge-only as the stronger control."
+                next_action = "Do not start Stage C yet. Keep the architecture fixed and rerun the three-seed Stage B ablation with an output-aware Stage B objective by enabling nonzero `training.stage_b.kl_weight` and `training.stage_b.ce_weight`, then rerun the Stage B output probe."
         elif not stage_b_payload.get("hybrid_beats_bridge_only", False):
             next_action = "Do not start Stage C yet. Record that the hybrid beats skip-only at seq_len 256 but does not clearly beat bridge-only, then decide whether to tune Stage B or keep bridge-only as the stronger baseline."
         else:

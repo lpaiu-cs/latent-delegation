@@ -88,6 +88,14 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_stage_b_ablation.ps1 -Sta
 powershell -ExecutionPolicy Bypass -File .\scripts\run_stage_b_output_probe.ps1
 ```
 
+For the next minimal Stage B experiment, keep the same architecture and switch only the Stage B objective to the output-aware config:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\run_stage_b_ablation.ps1 `
+  -Config .\configs\gemma2_conservative_pilot_256_stage_b_output_aware.yaml `
+  -StageACheckpoint .\artifacts\stage_a_pilot_ckpt\stage_a_checkpoint.pt
+```
+
 To refresh the milestone snapshot and Stage B parameter audit in the hardware report:
 
 ```powershell
@@ -202,6 +210,14 @@ Optional bridge-only baseline training with the same Stage B / C objectives:
   --config configs/gemma2_conservative.yaml \
   --variant bridge_only \
   --stage-b-checkpoint outputs/<run>/stage_b_checkpoint.pt
+```
+
+Output-aware Stage B is config-gated. To add teacher-logit supervision directly in Stage B without changing the architecture, use a config with nonzero `training.stage_b.kl_weight` and `training.stage_b.ce_weight`, for example:
+
+```bash
+.venv/bin/python -m src.train.stage_b_recover \
+  --config configs/gemma2_conservative_pilot_256_stage_b_output_aware.yaml \
+  --stage-a-checkpoint outputs/<run>/stage_a_checkpoint.pt
 ```
 
 Shell wrappers:

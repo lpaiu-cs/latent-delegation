@@ -15,6 +15,7 @@ from src.eval.metrics import masked_hidden_cosine_loss, masked_hidden_mse
 from src.models.baselines import BridgeOnlyLargeModel, BridgeOnlyParamMatchedModel, SkipOnlyLargeModel
 from src.models.hooks import count_parameters
 from src.models.hybrid_gemma import HybridDelegationModel, HybridNoSmallModel, _resolve_gate_value
+from src.train.stage_b_objective import compute_stage_b_loss_breakdown, prepare_stage_b_teacher_targets
 from src.train.trainer_utils import (
     build_dataloader,
     build_optimizer,
@@ -84,18 +85,13 @@ def _teacher_hidden(
     batch: dict[str, torch.Tensor],
     config: Any,
 ) -> tuple[torch.Tensor, torch.Tensor]:
-    with torch.no_grad():
-        prefix_state = large_runner.prepare_from_input_ids(batch["input_ids"], batch["attention_mask"])
-        prefix_state = large_runner.run_layers(prefix_state, 0, config.split.large_prefix_end)
-        hidden_after_prefix = prefix_state.hidden_states.detach()
-        teacher_state = prefix_state.with_hidden(hidden_after_prefix)
-        teacher_state = large_runner.run_layers(
-            teacher_state,
-            config.split.large_removed_start,
-            config.split.large_removed_end,
-        )
-        teacher_hidden = teacher_state.hidden_states.detach()
-    return hidden_after_prefix, teacher_hidden
+    teacher_targets = prepare_stage_b_teacher_targets(
+        large_runner,
+        batch,
+        config,
+        include_teacher_logits=False,
+    )
+    return teacher_targets.hidden_after_prefix, teacher_targets.teacher_hidden
 
 
 def _variant_prediction(
@@ -206,7 +202,8 @@ def _train_variant(
         optimizer.zero_grad(set_to_none=True)
         for _ in range(config.training.grad_accum_steps):
             batch = move_batch_to_device(next(batch_iterator), backbones.device)
-            hidden_after_prefix, teacher_hidden = _teacher_hidden(model.large_runner, batch, config)
+            teacher_targets = prepare_stage_b_teacher_targets(model.large_runner, batch, config)
+            hidden_after_prefix = teacher_targets.hidden_after_prefix
             prediction = _variant_prediction(
                 variant,
                 model,
@@ -214,10 +211,16 @@ def _train_variant(
                 attention_mask=batch["attention_mask"],
             )
             predicted_hidden = prediction["hidden_after_removed"]
-            mse_loss = masked_hidden_mse(predicted_hidden, teacher_hidden, batch["attention_mask"])
-            cosine_loss = masked_hidden_cosine_loss(predicted_hidden, teacher_hidden, batch["attention_mask"])
-            total_loss = (mse_loss + cosine_loss) / config.training.grad_accum_steps
-            total_loss.backward()
+            loss_terms = compute_stage_b_loss_breakdown(
+                model.large_runner,
+                config,
+                teacher_targets,
+                predicted_hidden,
+                batch["attention_mask"],
+                batch["labels"],
+                prediction["delta_large"],
+            )
+            (loss_terms.total_loss / config.training.grad_accum_steps).backward()
 
         torch.nn.utils.clip_grad_norm_(model.parameters(), config.training.max_grad_norm)
         optimizer.step()
@@ -226,9 +229,12 @@ def _train_variant(
             "seed": float(seed),
             "variant": variant,
             "step": float(step),
-            "loss": float((mse_loss + cosine_loss).detach().cpu()),
-            "mse_loss": float(mse_loss.detach().cpu()),
-            "cosine_loss": float(cosine_loss.detach().cpu()),
+            "loss": float(loss_terms.total_loss.detach().cpu()),
+            "mse_loss": float(loss_terms.mse_loss.detach().cpu()),
+            "cosine_loss": float(loss_terms.cosine_loss.detach().cpu()),
+            "kl_loss": float(loss_terms.kl_loss.detach().cpu()),
+            "ce_loss": float(loss_terms.ce_loss.detach().cpu()),
+            "delta_reg": float(loss_terms.delta_reg.detach().cpu()),
             "gate_value": float(model.gate.value().detach().cpu()),
             "delta_norm_mean": float(delta_stats["delta_norm_mean"] or 0.0),
             "delta_norm_max": float(delta_stats["delta_norm_max"] or 0.0),
@@ -236,13 +242,16 @@ def _train_variant(
         history.append(row)
         if step % config.training.log_every == 0 or step == config.training.stage_b.max_steps:
             LOGGER.info(
-                "stage_b_ablation seed=%s variant=%s step=%s loss=%.6f mse=%.6f cosine=%.6f gate=%.6f delta_mean=%.6f",
+                "stage_b_ablation seed=%s variant=%s step=%s loss=%.6f mse=%.6f cosine=%.6f kl=%.6f ce=%.6f delta=%.6f gate=%.6f delta_mean=%.6f",
                 seed,
                 variant,
                 step,
                 row["loss"],
                 row["mse_loss"],
                 row["cosine_loss"],
+                row["kl_loss"],
+                row["ce_loss"],
+                row["delta_reg"],
                 row["gate_value"],
                 row["delta_norm_mean"],
             )
@@ -488,6 +497,7 @@ def _write_ablation_report(
         f"- Seeds: {', '.join(str(seed) for seed in results_payload['seeds'])}",
         "- Stage A checkpoint policy: reused one fixed Stage A checkpoint across all seeds so the Stage B comparison isolates the delegated-vs-bridge question instead of reintroducing Stage A variation.",
         f"- Stage A checkpoint path: {results_payload['stage_a_checkpoint']}",
+        f"- Stage B loss weights: hidden_mse=1.0, hidden_cosine=1.0, kl={results_payload['stage_b_loss_weights']['kl_weight']}, ce={results_payload['stage_b_loss_weights']['ce_weight']}, delta_reg={results_payload['stage_b_loss_weights']['delta_reg_weight']}",
         f"- Hybrid Stage B trainable params: {results_payload['parameter_budget']['target_hybrid_trainable_params']}",
         f"- Original bridge-only Stage B trainable params: {results_payload['parameter_budget']['bridge_only_trainable_params']}",
         f"- Parameter-matched bridge rank: {results_payload['parameter_budget']['bridge_only_param_matched_rank']}",
@@ -639,6 +649,11 @@ def main() -> None:
         "config_path": args.config,
         "stage_a_checkpoint": args.stage_a_checkpoint,
         "reused_fixed_stage_a_checkpoint": True,
+        "stage_b_loss_weights": {
+            "kl_weight": base_config.training.stage_b.kl_weight or 0.0,
+            "ce_weight": base_config.training.stage_b.ce_weight or 0.0,
+            "delta_reg_weight": base_config.training.stage_b.delta_reg_weight or 0.0,
+        },
         "parameter_budget": parameter_budget,
         "per_seed": diagnostics_per_seed,
         "delegated_path_used_across_seeds": all(
@@ -657,6 +672,7 @@ def main() -> None:
         "max_train_steps": base_config.training.stage_b.max_steps,
         "stage_a_checkpoint": args.stage_a_checkpoint,
         "seeds": args.seeds,
+        "stage_b_loss_weights": diagnostics_payload["stage_b_loss_weights"],
         "parameter_budget": parameter_budget,
         "seed_results": seed_results,
         "summary": summary,

@@ -8,10 +8,10 @@ from pathlib import Path
 
 import torch
 
-from src.eval.metrics import masked_hidden_cosine_loss, masked_hidden_mse
 from src.models.backbone_loader import load_backbones
 from src.models.baselines import BridgeOnlyLargeModel
 from src.models.hybrid_gemma import HybridDelegationModel
+from src.train.stage_b_objective import compute_stage_b_loss_breakdown, prepare_stage_b_teacher_targets
 from src.train.trainer_utils import (
     build_dataloader,
     build_optimizer,
@@ -75,60 +75,54 @@ def main() -> None:
         optimizer.zero_grad(set_to_none=True)
         for _ in range(config.training.grad_accum_steps):
             batch = move_batch_to_device(next(batch_iterator), backbones.device)
-            with torch.no_grad():
-                prefix_state = model.large_runner.prepare_from_input_ids(batch["input_ids"], batch["attention_mask"])
-                prefix_state = model.large_runner.run_layers(prefix_state, 0, config.split.large_prefix_end)
-                large_hidden = prefix_state.hidden_states.detach()
-
-                teacher_state = prefix_state.with_hidden(large_hidden)
-                teacher_state = model.large_runner.run_layers(
-                    teacher_state,
-                    config.split.large_removed_start,
-                    config.split.large_removed_end,
-                )
-                teacher_hidden = teacher_state.hidden_states.detach()
+            teacher_targets = prepare_stage_b_teacher_targets(model.large_runner, batch, config)
+            large_hidden = teacher_targets.hidden_after_prefix
 
             if args.variant == "hybrid":
-                projected_hidden = model.entry_projector(large_hidden)
-                small_state = model.small_runner.prepare_from_hidden(
-                    projected_hidden,
-                    attention_mask=batch["attention_mask"],
-                    apply_input_scaling=False,
-                )
-                small_state = model.small_runner.run_layers(
-                    small_state,
-                    config.split.small_delegate_start,
-                    config.split.small_delegate_end,
-                )
-                delta_large = model.return_adapter(small_state.hidden_states)
+                with torch.no_grad():
+                    projected_hidden = model.entry_projector(large_hidden)
+                    delegated_small_hidden = model.run_delegated_small_block(projected_hidden, batch["attention_mask"])
+                delta_large = model.return_adapter(delegated_small_hidden.detach())
                 predicted_hidden = large_hidden + model.gate(delta_large)
             else:
                 delta_large = model.bridge(large_hidden)
                 predicted_hidden = large_hidden + model.gate(delta_large)
 
-            mse_loss = masked_hidden_mse(predicted_hidden, teacher_hidden, batch["attention_mask"])
-            cosine_loss = masked_hidden_cosine_loss(predicted_hidden, teacher_hidden, batch["attention_mask"])
-            total_loss = (mse_loss + cosine_loss) / config.training.grad_accum_steps
-            total_loss.backward()
+            loss_terms = compute_stage_b_loss_breakdown(
+                model.large_runner,
+                config,
+                teacher_targets,
+                predicted_hidden,
+                batch["attention_mask"],
+                batch["labels"],
+                delta_large,
+            )
+            (loss_terms.total_loss / config.training.grad_accum_steps).backward()
 
         torch.nn.utils.clip_grad_norm_(model.parameters(), config.training.max_grad_norm)
         optimizer.step()
 
         row = {
             "step": float(step),
-            "loss": float((mse_loss + cosine_loss).detach().cpu()),
-            "mse_loss": float(mse_loss.detach().cpu()),
-            "cosine_loss": float(cosine_loss.detach().cpu()),
+            "loss": float(loss_terms.total_loss.detach().cpu()),
+            "mse_loss": float(loss_terms.mse_loss.detach().cpu()),
+            "cosine_loss": float(loss_terms.cosine_loss.detach().cpu()),
+            "kl_loss": float(loss_terms.kl_loss.detach().cpu()),
+            "ce_loss": float(loss_terms.ce_loss.detach().cpu()),
+            "delta_reg": float(loss_terms.delta_reg.detach().cpu()),
             "gate_value": float(model.gate.value().detach().cpu()),
         }
         history.append(row)
         if step % config.training.log_every == 0 or step == config.training.stage_b.max_steps:
             LOGGER.info(
-                "stage_b step=%s loss=%.6f mse=%.6f cosine=%.6f gate=%.6f",
+                "stage_b step=%s loss=%.6f mse=%.6f cosine=%.6f kl=%.6f ce=%.6f delta=%.6f gate=%.6f",
                 step,
                 row["loss"],
                 row["mse_loss"],
                 row["cosine_loss"],
+                row["kl_loss"],
+                row["ce_loss"],
+                row["delta_reg"],
                 row["gate_value"],
             )
 
@@ -150,7 +144,13 @@ def main() -> None:
         "final_loss": history[-1]["loss"],
         "final_mse_loss": history[-1]["mse_loss"],
         "final_cosine_loss": history[-1]["cosine_loss"],
+        "final_kl_loss": history[-1]["kl_loss"],
+        "final_ce_loss": history[-1]["ce_loss"],
+        "final_delta_reg": history[-1]["delta_reg"],
         "final_gate_value": history[-1]["gate_value"],
+        "stage_b_kl_weight": config.training.stage_b.kl_weight or 0.0,
+        "stage_b_ce_weight": config.training.stage_b.ce_weight or 0.0,
+        "stage_b_delta_reg_weight": config.training.stage_b.delta_reg_weight or 0.0,
     }
     save_history(Path(run_dir), history, final_metrics)
 

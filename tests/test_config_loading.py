@@ -19,3 +19,11 @@ def test_pilot_config_loads() -> None:
     assert config.training.seq_len == 256
     assert config.training.stage_a.max_steps == 200
     assert config.training.stage_b.max_steps == 200
+
+
+def test_output_aware_stage_b_config_loads() -> None:
+    config = load_config(Path("configs/gemma2_conservative_pilot_256_stage_b_output_aware.yaml"))
+    assert config.training.seq_len == 256
+    assert config.training.stage_b.kl_weight == 5.0
+    assert config.training.stage_b.ce_weight == 1.0
+    assert config.training.stage_b.delta_reg_weight == 1.0e-4
