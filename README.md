@@ -85,6 +85,7 @@ If the smoke matrix clears far enough for pilot work, use the native wrappers:
 powershell -ExecutionPolicy Bypass -File .\scripts\run_stage_a_pilot.ps1
 powershell -ExecutionPolicy Bypass -File .\scripts\run_stage_b_pilot.ps1 -StageACheckpoint .\artifacts\stage_a_pilot_ckpt\stage_a_checkpoint.pt
 powershell -ExecutionPolicy Bypass -File .\scripts\run_stage_b_ablation.ps1 -StageACheckpoint .\artifacts\stage_a_pilot_ckpt\stage_a_checkpoint.pt
+powershell -ExecutionPolicy Bypass -File .\scripts\run_stage_b_output_probe.ps1
 ```
 
 To refresh the milestone snapshot and Stage B parameter audit in the hardware report:
@@ -250,6 +251,12 @@ Speed / VRAM:
   --config configs/gemma2_conservative.yaml \
   --stage-a-checkpoint outputs/<run>/stage_a_checkpoint.pt \
   --stage-b-checkpoint outputs/<run>/stage_b_checkpoint.pt
+```
+
+Stage B output probe:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\run_stage_b_output_probe.ps1
 ```
 
 All evals:

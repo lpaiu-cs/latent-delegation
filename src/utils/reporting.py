@@ -210,6 +210,22 @@ def _format_parameter_audit(parameter_audit_payload: dict[str, Any] | None) -> s
     return "\n".join(lines)
 
 
+def _format_v040_milestone() -> str:
+    return "\n".join(
+        [
+            "- Milestone: `v0.4.0`",
+            "- Strongest defensible claim: delegated small-model computation is useful relative to passthrough / no-small controls, but it has not yet shown a clean win over strong large-space bridge controls.",
+            "- Frozen reference artifacts:",
+            "- `artifacts/real_gemma_smoke.json`",
+            "- `artifacts/stage_a_pilot_metrics.json`",
+            "- `artifacts/stage_b_pilot_metrics.json`",
+            "- `artifacts/stage_b_ablation_results.json`",
+            "- `artifacts/stage_b_diagnostics.json`",
+            "- `notes/stage_b_ablation_report.md`",
+        ]
+    )
+
+
 def write_real_hardware_report(
     report_path: str | Path,
     *,
@@ -329,11 +345,15 @@ def write_real_hardware_report(
             "",
             parameter_audit,
             "",
-            "## 8. blockers",
+            "## 8. v0.4.0 milestone",
+            "",
+            _format_v040_milestone(),
+            "",
+            "## 9. blockers",
             "",
             "\n".join(f"- {line}" for line in blocker_lines),
             "",
-            "## 9. exact next recommended action",
+            "## 10. exact next recommended action",
             "",
             next_action,
             "",
