@@ -25,6 +25,23 @@ The repository is frozen at `v0.5.1` as a qualified research result.
 - entry-projector finetuning did **not** resolve that gap
 - Stage C was intentionally **not** pursued
 
+## v0.6 Continuation Track
+
+`v0.5.1` remains frozen. The continuation work now lives under the dedicated `v0_6` namespace:
+
+- `configs/v0_6/`
+- `scripts/v0_6/`
+- `artifacts/v0_6/`
+- `notes/v0_6/`
+
+Start with:
+
+- `notes/v0_6/continuation_handoff.md`
+- `notes/v0_6/research_plan.md`
+- `powershell -ExecutionPolicy Bypass -File .\scripts\v0_6\run_phase1_debug_smoke.ps1`
+
+The current local workspace can run the debug continuation smoke path and write `v0_6` artifacts, but real Gemma continuation runs remain subject to the environment blockers recorded in `notes/blockers.md`.
+
 ## Quick Result Snapshot
 
 - Smoke matrix: `14/14` cases passed

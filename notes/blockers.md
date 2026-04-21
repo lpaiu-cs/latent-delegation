@@ -57,3 +57,30 @@ Resolution path for this repo:
 
 Next concrete step:
 - On the target GPU machine, activate the repo environment and run `PYTHON_BIN=.venv/bin/python ./scripts/env_sanity.sh`.
+
+## 2026-04-22
+
+### v0.6 Phase 1 continuation is implemented, but real Gemma execution is still blocked here
+
+Observed in this workspace:
+- `scripts/v0_6/run_phase1_debug_smoke.ps1` completed successfully
+- debug-only continuation artifacts were written under:
+  - `artifacts/v0_6/phase1_window_search/`
+  - `artifacts/v0_6/phase1_stage_signatures/`
+- the new real continuation entrypoint is `configs/v0_6/gemma2_phase1.yaml`
+
+Impact:
+- The repo now has runnable Phase 1A and Phase 1B continuation infrastructure.
+- However, the current local workspace still cannot produce real Gemma Phase 1 evidence because the earlier blockers remain unchanged:
+  - no CUDA target device in this environment
+  - gated Gemma access is still unavailable here
+
+Resolution path for this repo:
+- move to the target RTX 5090-class machine
+- authenticate for `google/gemma-2-9b` and `google/gemma-2-2b`
+- run:
+  - `powershell -ExecutionPolicy Bypass -File .\scripts\v0_6\run_phase1_window_search.ps1`
+  - `powershell -ExecutionPolicy Bypass -File .\scripts\v0_6\run_phase1_stage_signatures.ps1`
+
+Next concrete step:
+- Re-run Phase 1 on the real target machine with `configs/v0_6/gemma2_phase1.yaml`, then update `notes/v0_6/phase1_combined_decision.md` from debug-smoke status to real-candidate status.

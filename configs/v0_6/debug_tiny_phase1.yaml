@@ -1,0 +1,108 @@
+experiment:
+  name: debug_tiny_v0_6_phase1
+  output_root: outputs
+
+model:
+  family: gemma2
+  large_model_name: debug/gemma2-large-tiny
+  small_model_name: debug/gemma2-small-tiny
+  tokenizer_name: debug/simple-tokenizer
+  load_in_4bit: false
+  bnb_4bit_quant_type: nf4
+  bnb_4bit_compute_dtype: float32
+  torch_dtype: float32
+  freeze_backbones: true
+  gradient_checkpointing: false
+  trust_remote_code: false
+  allow_qwen_fallback: false
+  debug_random_init: true
+  debug_large_hidden_size: 96
+  debug_large_intermediate_size: 192
+  debug_large_num_attention_heads: 8
+  debug_large_num_key_value_heads: 4
+  debug_small_hidden_size: 64
+  debug_small_intermediate_size: 128
+  debug_small_num_attention_heads: 8
+  debug_small_num_key_value_heads: 4
+  debug_vocab_size: 320
+  debug_max_position_embeddings: 512
+
+split:
+  large_prefix_end: 23
+  large_removed_start: 24
+  large_removed_end: 29
+  large_suffix_start: 30
+  small_entry_target_layer: 13
+  small_delegate_start: 14
+  small_delegate_end: 19
+
+adapters:
+  entry_projector: affine
+  return_adapter_rank: 16
+  bridge_rank: 16
+  gate_init: 0.01
+  use_rmsnorm_after_entry: true
+  rms_norm_eps: 1.0e-6
+
+training:
+  seed: 42
+  seq_len: 32
+  micro_batch_size: 2
+  grad_accum_steps: 1
+  num_workers: 0
+  learning_rate: 1.0e-3
+  weight_decay: 0.0
+  max_grad_norm: 1.0
+  log_every: 1
+  stage_a:
+    max_steps: 2
+    save_every: 1
+  stage_b:
+    max_steps: 2
+    save_every: 1
+    kl_weight: 1.0
+    ce_weight: 1.0
+    delta_reg_weight: 1.0e-3
+    train_entry_projector: false
+  stage_c:
+    max_steps: 2
+    save_every: 1
+    kl_weight: 1.0
+    ce_weight: 1.0
+    delta_reg_weight: 1.0e-3
+
+data:
+  use_synthetic_data: true
+  cache_dir: outputs/cache
+  train_wikitext_examples: 16
+  train_gsm8k_examples: 8
+  val_wikitext_examples: 8
+  gsm8k_eval_examples: 8
+  strategyqa_eval_examples: 8
+  synthetic_text_repeats: 16
+
+eval:
+  max_new_tokens: 8
+  gsm8k_examples: 8
+  strategyqa_examples: 8
+  speed_prompt_tokens: 16
+  speed_decode_tokens: 4
+
+window_search:
+  pilot_seeds: [42]
+  confirm_seeds: [42, 43, 44]
+  large_window_lengths: [4, 6]
+  small_window_lengths: [3, 6]
+  large_start_offsets: [0, 2]
+  small_start_offsets: [0, 2]
+  shortlist_size: 3
+  stage_a_steps: 2
+  stage_b_steps: 2
+  top_k: 5
+  max_validation_batches: 2
+
+stage_signatures:
+  window_lengths: [3, 4, 6]
+  top_k: 5
+  max_batches: 2
+
