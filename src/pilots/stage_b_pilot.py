@@ -14,9 +14,17 @@ from src.models.backbone_loader import LoadedBackbones, load_backbones
 from src.models.baselines import BridgeOnlyLargeModel, SkipOnlyLargeModel
 from src.models.hybrid_gemma import HybridDelegationModel
 from src.train.stage_b_objective import compute_stage_b_loss_breakdown, prepare_stage_b_teacher_targets
+from src.train.stage_b_train_utils import (
+    capture_entry_projector_init,
+    compute_hybrid_prediction,
+    entry_projector_grad_norm,
+    entry_projector_update_norm,
+    stage_b_train_entry_projector,
+    stage_b_trainable_prefixes,
+)
 from src.train.trainer_utils import (
     build_dataloader,
-    build_optimizer,
+    build_stage_b_optimizer,
     load_checkpoint,
     move_batch_to_device,
     save_checkpoint,
@@ -56,11 +64,11 @@ def _init_stage_b_model(
     if variant == "hybrid":
         model = HybridDelegationModel(config, backbones.large_model, backbones.small_model)
         model.entry_projector.load_state_dict(stage_a_payload["entry_projector"])
-        zero_requires_grad(model, except_prefixes=["return_adapter", "gate"])
+        zero_requires_grad(model, except_prefixes=stage_b_trainable_prefixes(variant, config))
         return model
     if variant == "bridge_only":
         model = BridgeOnlyLargeModel(config, backbones.large_model)
-        zero_requires_grad(model, except_prefixes=["bridge", "gate"])
+        zero_requires_grad(model, except_prefixes=stage_b_trainable_prefixes(variant, config))
         return model
     raise ValueError(f"Unsupported variant: {variant}")
 
@@ -73,10 +81,12 @@ def _train_variant(
     stage_a_payload: dict[str, Any],
 ) -> tuple[torch.nn.Module, list[dict[str, float]], dict[str, Any]]:
     model = _init_stage_b_model(variant, config, backbones, stage_a_payload)
-    optimizer = build_optimizer(model, config)
+    optimizer = build_stage_b_optimizer(model, config)
     batch_iterator = itertools.cycle(train_dataloader)
     history: list[dict[str, float]] = []
     model.train()
+    entry_init_state = capture_entry_projector_init(model)
+    train_entry_projector = stage_b_train_entry_projector(config)
 
     for step in range(1, config.training.stage_b.max_steps + 1):
         optimizer.zero_grad(set_to_none=True)
@@ -86,10 +96,12 @@ def _train_variant(
             prefix_hidden = teacher_targets.hidden_after_prefix
 
             if variant == "hybrid":
-                with torch.no_grad():
-                    projected_hidden = model.entry_projector(prefix_hidden)
-                    delegated_small_hidden = model.run_delegated_small_block(projected_hidden, batch["attention_mask"])
-                delta_large = model.return_adapter(delegated_small_hidden.detach())
+                _, delta_large = compute_hybrid_prediction(
+                    model,
+                    prefix_hidden,
+                    batch["attention_mask"],
+                    train_entry_projector=train_entry_projector,
+                )
                 predicted_hidden = prefix_hidden + model.gate(delta_large)
             else:
                 delta_large = model.bridge(prefix_hidden)
@@ -108,6 +120,8 @@ def _train_variant(
 
         torch.nn.utils.clip_grad_norm_(model.parameters(), config.training.max_grad_norm)
         optimizer.step()
+        entry_grad = entry_projector_grad_norm(model)
+        entry_update = entry_projector_update_norm(model, entry_init_state)
 
         row = {
             "variant": variant,
@@ -119,11 +133,13 @@ def _train_variant(
             "ce_loss": float(loss_terms.ce_loss.detach().cpu()),
             "delta_reg": float(loss_terms.delta_reg.detach().cpu()),
             "gate_value": float(model.gate.value().detach().cpu()),
+            "entry_grad_norm": float(entry_grad or 0.0),
+            "entry_update_norm": float(entry_update or 0.0),
         }
         history.append(row)
         if step % config.training.log_every == 0 or step == config.training.stage_b.max_steps:
             LOGGER.info(
-                "stage_b_pilot variant=%s step=%s loss=%.6f mse=%.6f cosine=%.6f kl=%.6f ce=%.6f delta=%.6f gate=%.6f",
+                "stage_b_pilot variant=%s step=%s loss=%.6f mse=%.6f cosine=%.6f kl=%.6f ce=%.6f delta=%.6f gate=%.6f entry_grad=%.6f entry_update=%.6f",
                 variant,
                 step,
                 row["loss"],
@@ -133,6 +149,8 @@ def _train_variant(
                 row["ce_loss"],
                 row["delta_reg"],
                 row["gate_value"],
+                row["entry_grad_norm"],
+                row["entry_update_norm"],
             )
 
     checkpoint_payload = {
@@ -228,6 +246,7 @@ def main() -> None:
     args = parse_args()
     config = load_config(args.config)
     seed_everything(config.training.seed)
+    train_entry_projector = stage_b_train_entry_projector(config)
 
     output_dir = ensure_dir(args.output_dir)
     save_config_snapshot(output_dir / "config_snapshot.yaml", config)
@@ -269,6 +288,10 @@ def main() -> None:
         "stage_b_kl_weight": config.training.stage_b.kl_weight or 0.0,
         "stage_b_ce_weight": config.training.stage_b.ce_weight or 0.0,
         "stage_b_delta_reg_weight": config.training.stage_b.delta_reg_weight or 0.0,
+        "stage_b_train_entry_projector": train_entry_projector,
+        "stage_b_entry_lr": config.training.stage_b.entry_lr or config.training.learning_rate,
+        "stage_b_return_lr": config.training.stage_b.return_lr or config.training.learning_rate,
+        "stage_b_gate_lr": config.training.stage_b.gate_lr or config.training.learning_rate,
         "hybrid_train_loss_start": hybrid_history[0]["loss"],
         "hybrid_train_loss_end": hybrid_history[-1]["loss"],
         "bridge_only_train_loss_start": bridge_history[0]["loss"],

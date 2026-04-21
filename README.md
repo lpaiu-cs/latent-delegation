@@ -1,15 +1,55 @@
 # Latent Delegation
 
-Single-GPU proof-of-concept for one-way latent delegation between same-family open models. The default target is:
+Single-GPU proof-of-concept for one-way latent delegation between same-family open models.
+
+Default pair:
 
 - large model: `google/gemma-2-9b`
 - small model: `google/gemma-2-2b`
 
-The v1 claim is narrow: replace a middle block of the large model with a delegated small-model block plus learned interface adapters, while the large model keeps the master residual state and final logits. This repo does not claim full thought transfer or full-model equivalence.
+## Project Goal
 
-## Default architecture
+Test whether a large same-family model can keep ownership of the master residual stream while delegating a middle block of computation to a smaller same-family model through latent-space transfer.
 
-Default conservative split, 0-indexed:
+This repo does **not** claim full thought transfer, full-model equivalence, or benchmark SOTA.
+
+## Current Final Status
+
+The repository is frozen at `v0.5.1` as a qualified research result.
+
+- real-hardware Gemma-2 9B -> 2B bring-up succeeded on the target RTX 5090-class Windows machine
+- Stage A representation alignment was stable
+- hidden-only Stage B improved hidden recovery over `skip_only` and `hybrid_no_small`
+- output-aware Stage B improved the hybrid over `skip_only` and `hybrid_no_small` at the output level
+- the hybrid did **not** outperform the strong large-space bridge baselines
+- entry-projector finetuning did **not** resolve that gap
+- Stage C was intentionally **not** pursued
+
+## Quick Result Snapshot
+
+- Smoke matrix: `14/14` cases passed
+- Largest successful smoke context: `seq_len=256` for `full_large`, `skip_only`, `bridge_only`, and `hybrid`
+- Stage A: train loss `354 -> 91`, held-out cosine `0.0078 -> 0.8447`
+- Output-aware Stage B output probe:
+  - `hybrid`: KL `0.6553`, NLL `3.4235`
+  - `hybrid_no_small`: KL `0.6730`, NLL `3.5018`
+  - `bridge_only`: KL `0.6463`, NLL `3.3939`
+  - `bridge_only_param_matched`: KL `0.6471`, NLL `3.3954`
+- Entry-tune follow-up:
+  - `hybrid_frozen_entry`: KL `0.6553`, NLL `3.4235`
+  - `hybrid_train_entry`: KL `0.6686`, NLL `3.4518`
+
+## Strongest Claim
+
+In the same-family Gemma-2 9B -> 2B setting, one-way latent delegation is real, runnable on a single GPU, and improves over `skip_only` and no-small controls. After output-aware Stage B, that improvement is visible at the output level as well.
+
+## Non-Claim
+
+This repo does **not** show that delegated small-model computation is better than strong large-space bridge-based alternatives.
+
+## Default Architecture
+
+Conservative split, 0-indexed:
 
 - large prefix: layers `0..23`
 - removed large block: layers `24..29`
@@ -20,10 +60,10 @@ Default conservative split, 0-indexed:
 Hybrid path:
 
 1. Run the large prefix.
-2. Project the large hidden state into small latent space.
+2. Project the large hidden into small latent space.
 3. Run frozen small layers `14..19`.
-4. Map back into large space with a low-rank return adapter.
-5. Add the returned delta through a near-zero scalar gate.
+4. Map back to large space with a low-rank return adapter.
+5. Add the returned delta through a learned scalar gate.
 6. Continue through the large suffix and large LM head.
 
 Implemented baselines:
@@ -31,41 +71,22 @@ Implemented baselines:
 - `FullLargeModel`
 - `SkipOnlyLargeModel`
 - `BridgeOnlyLargeModel`
+- `HybridNoSmallModel`
 - `HybridDelegationModel`
+- `BridgeOnlyParamMatched`
 
-## Environment
-
-Recommended:
-
-- Python `3.12`
-- single GPU for real Gemma runs
-
-This repo includes a debug smoke path that does not require Gemma weights.
-
-Create the environment:
-
-```bash
-python3.11 -m venv .venv
-. .venv/bin/activate
-pip install -r requirements.txt
-```
-
-Or:
-
-```bash
-make install
-```
-
-## Windows-native quick start
+## Windows-Native Setup
 
 Native Windows PowerShell is the default execution path on this machine.
 
-Create or update the environment:
+Install dependencies:
 
 ```powershell
 py -3.12 -m pip install --upgrade pip
 py -3.12 -m pip install -r requirements.txt
 ```
+
+## Reproduce The Smoke Path
 
 Environment and auth sanity:
 
@@ -79,16 +100,35 @@ Real Gemma smoke matrix:
 powershell -ExecutionPolicy Bypass -File .\scripts\real_gemma_smoke.ps1
 ```
 
-If the smoke matrix clears far enough for pilot work, use the native wrappers:
+## Reproduce The Key Pilot Runs
+
+Stage A pilot:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\run_stage_a_pilot.ps1
-powershell -ExecutionPolicy Bypass -File .\scripts\run_stage_b_pilot.ps1 -StageACheckpoint .\artifacts\stage_a_pilot_ckpt\stage_a_checkpoint.pt
-powershell -ExecutionPolicy Bypass -File .\scripts\run_stage_b_ablation.ps1 -StageACheckpoint .\artifacts\stage_a_pilot_ckpt\stage_a_checkpoint.pt
+```
+
+Stage B hidden-only pilot:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\run_stage_b_pilot.ps1 `
+  -StageACheckpoint .\artifacts\stage_a_pilot_ckpt\stage_a_checkpoint.pt
+```
+
+Stage B hidden-only ablation:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\run_stage_b_ablation.ps1 `
+  -StageACheckpoint .\artifacts\stage_a_pilot_ckpt\stage_a_checkpoint.pt
+```
+
+Stage B hidden-only output probe:
+
+```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\run_stage_b_output_probe.ps1
 ```
 
-For the next minimal Stage B experiment, keep the same architecture and switch only the Stage B objective to the output-aware config:
+Stage B output-aware ablation:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\run_stage_b_ablation.ps1 `
@@ -96,248 +136,60 @@ powershell -ExecutionPolicy Bypass -File .\scripts\run_stage_b_ablation.ps1 `
   -StageACheckpoint .\artifacts\stage_a_pilot_ckpt\stage_a_checkpoint.pt
 ```
 
-To refresh the milestone snapshot and Stage B parameter audit in the hardware report:
+Stage B entry-tune follow-up:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\write_milestone_snapshot.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\run_stage_b_entry_tune.ps1 `
+  -StageACheckpoint .\artifacts\stage_a_pilot_ckpt\stage_a_checkpoint.pt
 ```
 
-## Important access note
+Freeze figures and manifest from existing artifacts only:
 
-The default Gemma repositories are gated on Hugging Face. If the account is not authorized for Gemma, model downloads can fail with `401` or `403` responses.
-
-Before real Gemma runs, make sure:
-
-1. you have accepted the Gemma terms for the Hugging Face account
-2. you have authenticated, for example with `huggingface-cli login` or `HF_TOKEN`
-
-If Gemma access is blocked, the repo remains runnable with `configs/debug_tiny.yaml`.
-
-## Smoke test
-
-End-to-end debug path:
-
-```bash
-PYTHON_BIN=.venv/bin/python ./scripts/smoke_test.sh
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\freeze_v051.ps1
 ```
 
-Or:
+## Final Reports And Release Notes
 
-```bash
-make smoke PYTHON=.venv/bin/python
-```
+Key release documents:
 
-This runs:
-
-1. Stage A on `configs/debug_tiny.yaml`
-2. Stage B using the Stage A checkpoint
-3. Stage C using Stage A and Stage B checkpoints
-4. lightweight perplexity, GSM8K, StrategyQA, and speed evals
-
-## Real-hardware bring-up
-
-Environment and auth sanity check:
-
-```bash
-PYTHON_BIN=.venv/bin/python ./scripts/env_sanity.sh
-```
-
-This writes:
-
-- `artifacts/env_sanity.json`
+- `notes/final_report.md`
+- `notes/release_notes_v0.5.1.md`
+- `notes/abstract.md`
+- `notes/one_page_summary.md`
+- `notes/reproducibility.md`
 - `notes/real_hardware_report.md`
 
-Real Gemma smoke matrix on the target single-GPU machine:
+Key frozen release artifacts:
 
-```bash
-PYTHON_BIN=.venv/bin/python ./scripts/real_gemma_smoke.sh
-```
+- `artifacts/manifest_v0.5.1.json`
+- `artifacts/final_summary_table.csv`
+- `figures/hidden_metrics_stage_b.png`
+- `figures/output_metrics_stage_b.png`
+- `figures/milestone_progression.png`
+- `figures/entry_tune_effect.png`
 
-This script stops immediately if CUDA or Gemma auth sanity checks fail. If they pass, it runs:
+## Repo Layout
 
-- small-model load only
-- large-model load only
-- full-large forward at seq_len `64`, `128`, `256`
-- skip-only forward at seq_len `64`, `128`, `256`
-- bridge-only forward at seq_len `64`, `128`, `256`
-- hybrid forward at seq_len `64`, `128`, `256`
+- `configs/`: YAML experiment configs
+- `scripts/`: Windows-native PowerShell wrappers and shell helpers
+- `src/models/`: Gemma hybrid and baseline implementations
+- `src/train/`: Stage A / B / C training CLIs
+- `src/eval/`: lightweight evaluation paths
+- `src/analysis/`: Stage B comparison and reporting helpers
+- `src/tools/`: milestone/report generation utilities
+- `tests/`: config, shape, frozen-param, and helper coverage
+- `artifacts/`: frozen JSON/CSV/checkpoint outputs
+- `notes/`: reports, release notes, and reproducibility docs
 
-Outputs:
+## Stage C Note
 
-- `artifacts/real_gemma_smoke.json`
-- updated `notes/real_hardware_report.md`
-
-Operational notes for native Windows:
-
-- Hugging Face cache symlink warnings are not blockers; the cache falls back to regular file copies.
-- The PowerShell wrappers set `USE_TF=0` and `USE_FLAX=0` so `transformers` stays on the PyTorch path.
-
-## Exact training commands
-
-Stage A:
-
-```bash
-.venv/bin/python -m src.train.stage_a_align --config configs/gemma2_conservative.yaml
-```
-
-Stage B, hybrid:
-
-```bash
-.venv/bin/python -m src.train.stage_b_recover \
-  --config configs/gemma2_conservative.yaml \
-  --stage-a-checkpoint outputs/<run>/stage_a_checkpoint.pt
-```
-
-Stage C, hybrid:
-
-```bash
-.venv/bin/python -m src.train.stage_c_distill \
-  --config configs/gemma2_conservative.yaml \
-  --stage-a-checkpoint outputs/<run>/stage_a_checkpoint.pt \
-  --stage-b-checkpoint outputs/<run>/stage_b_checkpoint.pt
-```
-
-Optional bridge-only baseline training with the same Stage B / C objectives:
-
-```bash
-.venv/bin/python -m src.train.stage_b_recover \
-  --config configs/gemma2_conservative.yaml \
-  --variant bridge_only
-```
-
-```bash
-.venv/bin/python -m src.train.stage_c_distill \
-  --config configs/gemma2_conservative.yaml \
-  --variant bridge_only \
-  --stage-b-checkpoint outputs/<run>/stage_b_checkpoint.pt
-```
-
-Output-aware Stage B is config-gated. To add teacher-logit supervision directly in Stage B without changing the architecture, use a config with nonzero `training.stage_b.kl_weight` and `training.stage_b.ce_weight`, for example:
-
-```bash
-.venv/bin/python -m src.train.stage_b_recover \
-  --config configs/gemma2_conservative_pilot_256_stage_b_output_aware.yaml \
-  --stage-a-checkpoint outputs/<run>/stage_a_checkpoint.pt
-```
-
-Shell wrappers:
-
-```bash
-./scripts/run_stage_a.sh configs/gemma2_conservative.yaml
-./scripts/run_stage_b.sh configs/gemma2_conservative.yaml outputs/<run>/stage_a_checkpoint.pt
-./scripts/run_stage_c.sh configs/gemma2_conservative.yaml outputs/<run>/stage_a_checkpoint.pt outputs/<run>/stage_b_checkpoint.pt
-```
-
-## Evaluation commands
-
-Perplexity:
-
-```bash
-.venv/bin/python -m src.eval.eval_ppl \
-  --config configs/gemma2_conservative.yaml \
-  --variant hybrid \
-  --stage-a-checkpoint outputs/<run>/stage_a_checkpoint.pt \
-  --stage-b-checkpoint outputs/<run>/stage_b_checkpoint.pt
-```
-
-GSM8K subset:
-
-```bash
-.venv/bin/python -m src.eval.eval_gsm8k \
-  --config configs/gemma2_conservative.yaml \
-  --variant hybrid \
-  --stage-a-checkpoint outputs/<run>/stage_a_checkpoint.pt \
-  --stage-b-checkpoint outputs/<run>/stage_b_checkpoint.pt
-```
-
-StrategyQA subset:
-
-```bash
-.venv/bin/python -m src.eval.eval_strategyqa \
-  --config configs/gemma2_conservative.yaml \
-  --variant hybrid \
-  --stage-a-checkpoint outputs/<run>/stage_a_checkpoint.pt \
-  --stage-b-checkpoint outputs/<run>/stage_b_checkpoint.pt
-```
-
-Speed / VRAM:
-
-```bash
-.venv/bin/python -m src.eval.eval_speed \
-  --config configs/gemma2_conservative.yaml \
-  --stage-a-checkpoint outputs/<run>/stage_a_checkpoint.pt \
-  --stage-b-checkpoint outputs/<run>/stage_b_checkpoint.pt
-```
-
-Stage B output probe:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\run_stage_b_output_probe.ps1
-```
-
-All evals:
-
-```bash
-./scripts/run_eval_all.sh configs/gemma2_conservative.yaml outputs/<run>/stage_a_checkpoint.pt outputs/<run>/stage_b_checkpoint.pt
-```
+Stage C was intentionally not pursued for `v0.5.1`. The gating condition was that the delegated hybrid should first beat or at least match the stronger bridge controls on the lightweight output metrics. That did not happen, and entry-projector finetuning did not fix it, so the repo was frozen and written up as a qualified feasibility result.
 
 ## Tests
-
-Run unit tests and the debug smoke test:
-
-```bash
-.venv/bin/pytest -q
-```
-
-Or:
-
-```bash
-make test PYTHON=.venv/bin/python
-```
 
 On Windows:
 
 ```powershell
 py -3.12 -m pytest -q
 ```
-
-## Expected outputs
-
-Each stage writes a run directory under `outputs/<experiment>/<stage>/<timestamp>/` unless an explicit `--output-dir` is provided.
-
-Typical contents:
-
-- `config_snapshot.yaml`
-- `metadata.json`
-- `sample_ids.json`
-- `history.csv`
-- `metrics.json`
-- `stage_a_checkpoint.pt` or `stage_b_checkpoint.pt` or `stage_c_checkpoint.pt`
-
-Evaluation writes JSON metrics and prediction files under the chosen output directory.
-
-## Repo layout
-
-Main implementation:
-
-- `src/models/backbone_loader.py`: model and tokenizer loading, including debug tiny backbones
-- `src/models/hybrid_gemma.py`: explicit Gemma layer runner and hybrid model
-- `src/models/baselines.py`: full / skip / bridge baselines
-- `src/train/`: Stage A / B / C CLIs
-- `src/eval/`: perplexity, GSM8K, StrategyQA, and speed evaluation
-- `tests/`: config, shape, frozen-param, and smoke coverage
-
-Planning and notes:
-
-- `notes/references.md`
-- `notes/plan.md`
-- `notes/blockers.md`
-- `notes/final_report.md`
-
-## Known limitations
-
-- Real Gemma loading is blocked until Hugging Face access is authenticated for the gated repos.
-- The code assumes Gemma-family execution for the default path; no silent cross-family fallback is implemented.
-- Generation uses simple greedy full-sequence decoding rather than a cache-optimized serving path.
-- The debug tokenizer is intentionally minimal and exists only to keep tests and smoke runs independent from Gemma access.
-- 4-bit loading is implemented for real GPU-backed runs, but the smoke path uses random-initialized tiny Gemma-like backbones instead.

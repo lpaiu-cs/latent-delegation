@@ -39,6 +39,32 @@ def build_optimizer(module: nn.Module, config: ExperimentConfig) -> AdamW:
     return AdamW(parameters, lr=config.training.learning_rate, weight_decay=config.training.weight_decay)
 
 
+def build_stage_b_optimizer(module: nn.Module, config: ExperimentConfig) -> AdamW:
+    """Create a Stage B optimizer with optional module-specific learning rates."""
+
+    stage_b = config.training.stage_b
+    base_lr = config.training.learning_rate
+    entry_lr = stage_b.entry_lr or base_lr
+    return_lr = stage_b.return_lr or base_lr
+    gate_lr = stage_b.gate_lr or base_lr
+
+    grouped_parameters: dict[float, list[nn.Parameter]] = {}
+    for name, parameter in module.named_parameters():
+        if not parameter.requires_grad:
+            continue
+        lr = base_lr
+        if name.startswith("entry_projector"):
+            lr = entry_lr
+        elif name.startswith("return_adapter"):
+            lr = return_lr
+        elif name.startswith("gate"):
+            lr = gate_lr
+        grouped_parameters.setdefault(lr, []).append(parameter)
+
+    param_groups = [{"params": params, "lr": lr} for lr, params in grouped_parameters.items()]
+    return AdamW(param_groups, lr=base_lr, weight_decay=config.training.weight_decay)
+
+
 def move_batch_to_device(batch: dict[str, torch.Tensor], device: torch.device) -> dict[str, torch.Tensor]:
     """Move tensor batches to the model device."""
 

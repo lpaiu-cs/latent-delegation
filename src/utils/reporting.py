@@ -226,6 +226,22 @@ def _format_v040_milestone() -> str:
     )
 
 
+def _format_v050_milestone() -> str:
+    return "\n".join(
+        [
+            "- Milestone: `v0.5.0`",
+            "- Strongest defensible claim: delegated small-model computation now beats no-small controls at the output level, but still does not beat strong large-space bridge controls.",
+            "- Frozen reference artifacts:",
+            "- `artifacts/stage_b_ablation_output_aware_results.json`",
+            "- `artifacts/stage_b_output_aware_diagnostics.json`",
+            "- `notes/stage_b_ablation_output_aware_report.md`",
+            "- `artifacts/stage_b_output_probe_output_aware_results.json`",
+            "- `artifacts/stage_b_output_probe_output_aware_summary.csv`",
+            "- `notes/stage_b_output_probe_output_aware_report.md`",
+        ]
+    )
+
+
 def write_real_hardware_report(
     report_path: str | Path,
     *,
@@ -349,11 +365,15 @@ def write_real_hardware_report(
             "",
             _format_v040_milestone(),
             "",
-            "## 9. blockers",
+            "## 9. v0.5.0 milestone",
+            "",
+            _format_v050_milestone(),
+            "",
+            "## 10. blockers",
             "",
             "\n".join(f"- {line}" for line in blocker_lines),
             "",
-            "## 10. exact next recommended action",
+            "## 11. exact next recommended action",
             "",
             next_action,
             "",

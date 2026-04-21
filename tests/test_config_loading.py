@@ -27,3 +27,11 @@ def test_output_aware_stage_b_config_loads() -> None:
     assert config.training.stage_b.kl_weight == 5.0
     assert config.training.stage_b.ce_weight == 1.0
     assert config.training.stage_b.delta_reg_weight == 1.0e-4
+
+
+def test_output_aware_train_entry_config_loads() -> None:
+    config = load_config(Path("configs/gemma2_conservative_pilot_256_stage_b_output_aware_train_entry.yaml"))
+    assert config.training.stage_b.train_entry_projector is True
+    assert config.training.stage_b.entry_lr == 1.5e-4
+    assert config.training.stage_b.return_lr == 3.0e-4
+    assert config.training.stage_b.gate_lr == 3.0e-4

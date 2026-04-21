@@ -76,6 +76,10 @@ class StageTrainConfig:
     kl_weight: float | None = None
     ce_weight: float | None = None
     delta_reg_weight: float | None = None
+    train_entry_projector: bool = False
+    entry_lr: float | None = None
+    return_lr: float | None = None
+    gate_lr: float | None = None
 
 
 @dataclass
@@ -240,7 +244,13 @@ def save_csv(path: str | Path, rows: list[dict[str, Any]]) -> None:
     if not rows:
         Path(path).write_text("", encoding="utf-8")
         return
-    fieldnames = list(rows[0].keys())
+    fieldnames: list[str] = []
+    seen: set[str] = set()
+    for row in rows:
+        for key in row.keys():
+            if key not in seen:
+                seen.add(key)
+                fieldnames.append(key)
     with Path(path).open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
