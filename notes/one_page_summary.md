@@ -1,5 +1,11 @@
 # One-Page Summary
 
+## Current Frozen State
+
+- `v0.6.0` is the frozen current best branch.
+- `v0_7` and `v0_8` are analysis-only follow-ups and do not supersede the `v0.6.0` claim.
+- The next repo question is evaluation generalization, not new architecture work and not Stage C.
+
 ## What This Project Asked
 
 This project tested a narrow feasibility question, not a broad model-improvement claim:

@@ -2,6 +2,12 @@
 
 One-Way Latent Delegation Between Same-Family Gemma-2 Models on a Single GPU: A Qualified Feasibility Result
 
+## Result-State Note
+
+- `v0.6.0` is now the frozen current best model/result state for this repo.
+- `v0_7` and `v0_8` remain analysis branches only and do not replace the `v0.6.0` best-model claim.
+- The next active branch is evaluation generalization, not new model-building and not Stage C.
+
 ## 2. Objective
 
 The objective of this project was to test a narrow feasibility question: can a large model keep ownership of the master residual stream while delegating part of the middle computation to a smaller same-family model through latent-space transfer? The default pair was `google/gemma-2-9b` as the large model and `google/gemma-2-2b` as the small model.
