@@ -1,31 +1,21 @@
 experiment:
-  name: debug_tiny_idea4
+  name: gemma2_v0_6_idea4_tokenwise_confirm_seed42
   output_root: outputs
 
 model:
   family: gemma2
-  large_model_name: debug/gemma2-large-tiny
-  small_model_name: debug/gemma2-small-tiny
-  tokenizer_name: debug/simple-tokenizer
-  load_in_4bit: false
+  large_model_name: google/gemma-2-9b
+  small_model_name: google/gemma-2-2b
+  tokenizer_name: google/gemma-2-2b
+  load_in_4bit: true
   bnb_4bit_quant_type: nf4
-  bnb_4bit_compute_dtype: float32
-  torch_dtype: float32
+  bnb_4bit_compute_dtype: bfloat16
+  torch_dtype: bfloat16
   freeze_backbones: true
   gradient_checkpointing: false
   trust_remote_code: false
   allow_qwen_fallback: false
-  debug_random_init: true
-  debug_large_hidden_size: 96
-  debug_large_intermediate_size: 192
-  debug_large_num_attention_heads: 8
-  debug_large_num_key_value_heads: 4
-  debug_small_hidden_size: 64
-  debug_small_intermediate_size: 128
-  debug_small_num_attention_heads: 8
-  debug_small_num_key_value_heads: 4
-  debug_vocab_size: 320
-  debug_max_position_embeddings: 512
+  debug_random_init: false
 
 split:
   large_prefix_end: 23
@@ -38,55 +28,57 @@ split:
 
 adapters:
   entry_projector: affine
-  return_adapter_rank: 16
-  bridge_rank: 16
+  return_adapter_rank: 64
+  bridge_rank: 64
   gate_init: 0.01
   use_rmsnorm_after_entry: true
   rms_norm_eps: 1.0e-6
 
 training:
   seed: 42
-  seq_len: 32
-  micro_batch_size: 2
-  grad_accum_steps: 1
+  seq_len: 256
+  micro_batch_size: 1
+  grad_accum_steps: 8
   num_workers: 0
-  learning_rate: 1.0e-3
+  learning_rate: 1.5e-4
   weight_decay: 0.0
   max_grad_norm: 1.0
-  log_every: 1
+  log_every: 10
   stage_a:
-    max_steps: 2
+    max_steps: 1
     save_every: 1
   stage_b:
-    max_steps: 2
-    save_every: 1
+    max_steps: 200
+    save_every: 200
     kl_weight: 5.0
     ce_weight: 1.0
     delta_reg_weight: 1.0e-4
     train_entry_projector: false
+    return_lr: 1.5e-4
+    gate_lr: 3.0e-4
   stage_c:
-    max_steps: 2
-    save_every: 1
+    max_steps: 100
+    save_every: 50
     kl_weight: 1.0
     ce_weight: 1.0
-    delta_reg_weight: 1.0e-3
+    delta_reg_weight: 1.0e-4
 
 data:
-  use_synthetic_data: true
+  use_synthetic_data: false
   cache_dir: outputs/cache
-  train_wikitext_examples: 16
-  train_gsm8k_examples: 8
-  val_wikitext_examples: 8
-  gsm8k_eval_examples: 8
-  strategyqa_eval_examples: 8
-  synthetic_text_repeats: 16
+  train_wikitext_examples: 128
+  train_gsm8k_examples: 64
+  val_wikitext_examples: 32
+  gsm8k_eval_examples: 200
+  strategyqa_eval_examples: 200
+  synthetic_text_repeats: 32
 
 eval:
-  max_new_tokens: 8
-  gsm8k_examples: 8
-  strategyqa_examples: 8
-  speed_prompt_tokens: 16
-  speed_decode_tokens: 4
+  max_new_tokens: 64
+  gsm8k_examples: 200
+  strategyqa_examples: 200
+  speed_prompt_tokens: 128
+  speed_decode_tokens: 32
 
 idea4:
   paths:
@@ -104,7 +96,7 @@ idea4:
     dataset_name: wikitext
     dataset_config_name: wikitext-103-v1
     split: test
-    sample_count: 8
+    sample_count: 32
     sampling_seed: 7606
   tokenwise_gate:
     hidden_dim: 0

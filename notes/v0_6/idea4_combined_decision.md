@@ -1,5 +1,11 @@
 # Idea 4 Combined Decision
 
+## Milestone
+
+- static mixture is the first pilot result that beats both bridge controls on KL/NLL
+- this is strong enough to justify continuation
+- but a fresh untouched holdout is now required for stricter confidence
+
 1. Does the static two-path mixture beat the best single-path candidate?
 Yes. On the 3-seed confirmation run, the static mixture beat the best single-path reference (`24..27 -> 14..19` by mean KL) on both KL and NLL in all 3 seeds. The aggregate deltas were dKL `-0.014546` and dNLL `-0.077591`.
 
