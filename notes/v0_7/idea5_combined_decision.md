@@ -65,4 +65,10 @@ No. The derived single-path candidate improved NLL and PPL, but it lost badly on
 5. Should the project proceed with Idea 5 model-building, or stop and preserve Idea 4 as the best branch?
 Stop here. The discovery evidence strengthens the theoretical monotone-alignment story, but the one bounded empirical check did not support expanding Idea 5 model-building beyond discovery in this task.
 
+## Next Branch
+
+- Idea 5 strengthened the monotone-corridor hypothesis.
+- Its one bounded empirical candidate was not competitive with `v0.6.0`.
+- The next branch is Idea 2, not more Idea 5 model-building.
+
 Stop Idea 5 and preserve v0.6.0 as the current best result
