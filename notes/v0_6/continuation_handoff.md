@@ -2,13 +2,19 @@
 
 This repository remains frozen at `v0.5.1` as a qualified feasibility result.
 
+Status note:
+
+- debug shortlist exists from the `debug_tiny` Phase 1 smoke path
+- real Gemma Phase 1 is now the next required step
+- `v0_6` is a development track, not a release result
+
 The `v0_6` namespace is the continuation track. It exists to test whether the remaining gap to strong bridge baselines is mainly caused by coarse, structurally misaligned block substitution rather than by a failure of same-family delegation itself.
 
 Immediate execution order:
 
-1. Phase 1A: output-aware asymmetric window search
-2. Phase 1B: functional-stage signature matching
-3. Phase 1C: combine the two into a short decision note
+1. Phase 1B: functional-stage signature matching on the real Gemma path
+2. Phase 1A: candidate-specific real shortlist screening
+3. Phase 1C: combine the two into a short real-only decision note
 
 Scope guardrails for this continuation:
 
@@ -39,3 +45,9 @@ Reports:
 - `notes/v0_6/phase1_stage_signatures_report.md`
 - `notes/v0_6/phase1_combined_decision.md`
 
+Real Phase 1 execution is tracked separately under:
+
+- `notes/v0_6/phase1_real_status.md`
+- `notes/v0_6/phase1b_real_stage_signature.md`
+- `notes/v0_6/phase1a_real_screening.md`
+- `notes/v0_6/phase1_real_combined_decision.md`
