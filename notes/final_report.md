@@ -1,268 +1,238 @@
-# 1. Title
+# Final Report
 
-One-Way Latent Delegation Between Same-Family Gemma-2 Models on a Single GPU: A Qualified Feasibility Result
+## Frozen Repo State
 
-## Result-State Note
+- `v0.6.0` is the frozen current best model/result in this repo.
+- `v0_7` and `v0_8` remain analysis-only branches and do not replace the `v0.6.0` best-model claim.
+- `v0_9` is a bounded external generalization branch and does not introduce a new best model.
+- Stage C was not started.
+- The correct next step is paperization, not more model-building.
 
-- `v0.6.0` is now the frozen current best model/result state for this repo.
-- `v0_7` and `v0_8` remain analysis branches only and do not replace the `v0.6.0` best-model claim.
-- The next active branch is evaluation generalization, not new model-building and not Stage C.
+## Objective
 
-## 2. Objective
+This project asked a narrow feasibility question:
 
-The objective of this project was to test a narrow feasibility question: can a large model keep ownership of the master residual stream while delegating part of the middle computation to a smaller same-family model through latent-space transfer? The default pair was `google/gemma-2-9b` as the large model and `google/gemma-2-2b` as the small model.
+Can a large same-family model keep ownership of the master residual stream while delegating a middle slice of computation to a smaller same-family model through latent-space transfer?
 
-The intended claim was never full "thought transfer" or full-model equivalence. The intended claim was that a frozen large model might recover useful computation by routing a middle block through a frozen smaller same-family model plus learned interface modules.
+The default pair was:
 
-## 3. Constraints
+- `google/gemma-2-9b`
+- `google/gemma-2-2b`
 
-- Hardware: one RTX 5090-class GPU
-- Scope: one-month feasibility project, not a benchmark or SOTA effort
-- Model family: same-family open models only, defaulting to Gemma-2 9B -> 2B
-- Training policy: frozen backbones throughout v1
-- Quantization: 4-bit frozen backbones where practical
-- Trainable modules only: interface adapters and scalar gate
-- No LoRA, no backbone unfreezing, no multi-GPU, no Stage C unless earlier stages justified it
+The intended claim was never full thought transfer or broad downstream superiority. The intended claim was that a frozen large model might recover useful computation by routing a middle block through a frozen smaller same-family model plus learned interface modules.
 
-## 4. Model Choice And Rationale
+## Constraints
 
-Gemma-2 9B and Gemma-2 2B were chosen because the project depended on same-family latent compatibility rather than cross-family distillation. Using the same family keeps tokenizer conventions, architectural conventions, and hidden-state semantics aligned enough to make the delegated-latent hypothesis meaningful.
+- one RTX 5090-class GPU
+- same-family open models only
+- frozen backbones
+- train only small interface modules
+- 4-bit frozen backbones when practical
+- no multi-GPU, no FSDP, no DeepSpeed, no LoRA by default
+- no Stage C unless earlier evidence justified it
 
-The repo remained model-family-specific by design. Gemma access and CUDA both worked on the target Windows machine, so the project did not need to fall back to another family.
+## v0.5.x Baseline Story
 
-## 5. Architecture
+The `v0.5.x` line established the qualified feasibility result but not the final repo best model.
 
-The architecture used the conservative split defined in `configs/gemma2_conservative.yaml` and carried forward into the pilot configs.
+What worked:
 
-- Large prefix: large layers `0..23`
-- Removed large middle block: large layers `24..29`
-- Large suffix: large layers `30..41`
-- Small reference state: small hidden after layer `13`
-- Delegated small block: small layers `14..19`
+- real-hardware Gemma bring-up succeeded on the target Windows machine
+- the smoke matrix passed `14/14` cases
+- Stage A alignment stabilized
+- hidden-only Stage B beat `skip_only` and `hybrid_no_small`
+- output-aware Stage B produced an output-level gain over `skip_only` and `hybrid_no_small`
 
-Hybrid forward path:
+What failed:
 
-1. Run the frozen large prefix.
-2. Map the large hidden state into the small latent space with an affine entry projector.
-3. Run the frozen delegated small block.
-4. Map the delegated result back into large space with a low-rank return adapter.
-5. Add the returned delta through a learned scalar gate.
-6. Continue through the frozen large suffix and large LM head.
+- the hybrid still did not beat the strong bridge baselines
+- entry-projector finetuning improved hidden metrics but worsened KL/NLL relative to the frozen-entry output-aware baseline
 
-Default adapter settings:
+So `v0.5.1` remained a qualified feasibility result, not the final best branch.
 
-- Entry projector: affine + optional RMSNorm
-- Return adapter rank: `64`
-- Bridge rank: `64`
-- Gate initialization: `0.01`
+## Phase 1 Continuation
 
-## 6. Training Stages
+The `v0_6` continuation asked whether the old fixed contiguous `24..29 -> 14..19` substitution was simply the wrong structural prior.
 
-### Stage A
+Real Gemma Phase 1 rejected that legacy split as the best default.
 
-Stage A trained the entry projector to align the large hidden after layer 23 with the small-family latent state before small layer 14. The losses were hidden-state MSE and cosine similarity loss.
+The confirmed shortlist was exactly:
 
-### Stage B Hidden-Only
+- `24..27 -> 14..19`
+- `24..27 -> 16..18`
 
-The first Stage B version trained the return path against the large teacher hidden after layer 29 using hidden-state MSE and cosine only. This established whether delegated computation helped recover the removed large block in hidden space.
+On the confirmation pilot:
 
-### Stage B Output-Aware
+- `24..27 -> 14..19`: KL `0.281641`, NLL `3.078029`
+- `24..27 -> 16..18`: KL `0.282215`, NLL `3.074461`
 
-The second Stage B version kept the same architecture but added teacher-logit KL and held-out next-token CE directly into Stage B, with a small delta regularizer. This was the minimal change needed after the hidden-only Stage B result failed to translate into better output behavior.
+The old legacy candidate was much worse even on coarse screening:
 
-### Entry-Tune Follow-Up
+- `24..29 -> 14..19`: KL `0.725030`, NLL `3.425046`
 
-The final follow-up kept the output-aware Stage B objective but allowed the Stage A entry projector to continue adapting during Stage B. This tested whether the fixed Stage A projector was the main remaining bottleneck. No backbone layers were unfrozen.
+That was the point where the repo stopped treating the original fixed `6 -> 6` split as the right default structural prior.
 
-## 7. Controls And Baselines
+## v0.6.0 Best Result
 
-- `skip_only`: remove the large middle block and continue directly to the suffix
-- `hybrid_no_small`: keep the entry projector, return adapter, and gate, but do not run the delegated small-model block
-- `bridge_only`: learned large-space bridge baseline with no small model
-- `bridge_only_param_matched`: stronger large-space bridge baseline chosen to approximately match the hybrid trainable budget
+The strongest result in the repo is the frozen token-wise Idea 4 model.
 
-Parameter counts at the Stage B ablation milestone:
+Architecture:
 
-- `skip_only`: `0` trainable params
-- `hybrid`: `376,833` trainable params
-- `hybrid_no_small`: `376,833` trainable params
-- `bridge_only`: `458,753` trainable params
-- `bridge_only_param_matched`: `379,905` trainable params
+- removed large window fixed to `24..27`
+- two delegated paths:
+  - path B: `24..27 -> 14..19`
+  - path A: `24..27 -> 16..18`
+- frozen large and small backbones
+- learnable low-capacity token-wise gate over the two delegated deltas
 
-The parameter-matched bridge control matters because it separates "delegated small-model computation" from "simply having more trainable capacity."
+Intermediate step:
 
-## 8. Experimental Timeline / Milestone Progression
+- the static two-path mixture was the first pilot result that beat both bridge controls on KL/NLL
+- that bridge win survived a fresh untouched holdout slice
 
-### v0.4.0
+Final token-wise `v0.6.0` results:
 
-- Real-hardware bring-up completed on the RTX 5090-class Windows machine.
-- Gemma 2B and 9B loaded successfully in the same-family path.
-- Stage A stabilized.
-- Stage B hidden-only ablation showed that `hybrid` beat `skip_only` and `hybrid_no_small`, but not the bridge controls.
+Original holdout:
 
-### v0.5.0
+- `tokenwise_mixture`: KL `0.255739`, NLL `2.980182`, PPL `19.763760`
+- `static_mixture`: KL `0.267095`, NLL `3.000438`, PPL `20.156769`
+- `bridge_only`: KL `0.288448`, NLL `3.072051`, PPL `21.673345`
+- `bridge_only_param_matched`: KL `0.302323`, NLL `3.102081`, PPL `22.330668`
 
-- Stage B was upgraded to an output-aware objective.
-- Output probe showed that `hybrid` now beat `skip_only` and `hybrid_no_small` at the output level.
-- The bridge controls still remained better.
+Fresh untouched holdout:
 
-### v0.5.1
+- `tokenwise_mixture`: KL `0.248886`, NLL `3.185004`, PPL `24.167632`
+- `static_mixture`: KL `0.267244`, NLL `3.213048`, PPL `24.854807`
+- `bridge_only`: KL `0.289564`, NLL `3.295081`, PPL `26.979976`
+- `bridge_only_param_matched`: KL `0.301746`, NLL `3.327024`, PPL `27.855381`
 
-- Stage B entry-projector finetuning was added as a focused follow-up.
-- Hidden recovery improved, but output KL/NLL did not.
-- The gap to the bridge controls widened rather than closing.
-- The project was frozen as a qualified feasibility result rather than extended to Stage C.
+Pairwise deltas for `tokenwise_mixture`:
 
-## 9. Main Quantitative Results
+- versus `static_mixture`, original holdout: KL `-0.011356`, NLL `-0.020256`
+- versus `static_mixture`, fresh holdout: KL `-0.018358`, NLL `-0.028044`
+- versus `bridge_only`, original holdout: KL `-0.032709`, NLL `-0.091869`
+- versus `bridge_only`, fresh holdout: KL `-0.040677`, NLL `-0.110077`
+- versus `bridge_only_param_matched`, original holdout: KL `-0.046584`, NLL `-0.121899`
+- versus `bridge_only_param_matched`, fresh holdout: KL `-0.052859`, NLL `-0.142020`
 
-### Smoke Success
+Interpretation:
 
-- `env_sanity` passed.
-- `real_gemma_smoke` completed successfully: `14/14` cases passed.
-- Largest successful `seq_len` was `256` for `full_large`, `skip_only`, `bridge_only`, and `hybrid`.
-- Hybrid forward at `seq_len=256` completed at about `9.62 GB` peak VRAM in the smoke matrix.
+- the strongest result is not just “delegation beats skip”
+- it is specifically that a bounded two-path token-wise delegated hybrid beats the strongest bridge controls on the repo’s main held-out LM-style probes, and that this win survives an untouched holdout recheck
 
-### Stage A
+## Analysis Branches Only
 
-From `artifacts/stage_a_pilot_metrics.json`:
+### v0_7: Idea 5
 
-- Train loss: `354.0 -> 91.0`
-- Held-out MSE: `111.20 -> 99.95`
-- Held-out cosine: `0.0078 -> 0.8447`
-- Trainable params: `8,262,144`
+Idea 5 asked whether the successful two-path shortlist was a local sample from a broader monotone asymmetric cross-scale corridor.
 
-Interpretation: the entry projector learned a stable same-family alignment on the lightweight pilot.
+That discovery branch succeeded analytically:
 
-### Stage B Hidden-Only
+- it recovered a monotone local corridor around the successful splice region
+- it strengthened the explanation for why the two-path shortlist worked
+- it made the old legacy fixed split look structurally implausible in a more principled way
 
-Single pilot:
+But its bounded empirical candidate `24..27 -> 15..18` was not competitive enough with `v0.6.0`.
 
-- `skip_only`: hidden MSE `25.57`, cosine `0.7420`
-- `bridge_only`: hidden MSE `20.26`, cosine `0.7957`
-- `hybrid`: hidden MSE `20.88`, cosine `0.8064`
+So `v0_7` remains analysis-only.
 
-Three-seed ablation:
+### v0_8: Idea 2
 
-- `hybrid` beat `skip_only` on both hidden metrics in `3/3` seeds
-- `hybrid` beat `hybrid_no_small` in `3/3` seeds
-- `hybrid` beat `bridge_only` in `0/3` seeds
-- `hybrid` beat `bridge_only_param_matched` in `0/3` seeds
+Idea 2 asked whether the `v0.6.0` gain came mainly from delegated attention, delegated MLP, or both.
 
-Aggregate hidden-only output probe:
+Result:
 
-- `hybrid`: KL `1.2571`, NLL `4.1061`, PPL `60.96`
-- `hybrid_no_small`: KL `1.0012`, NLL `3.8624`, PPL `47.71`
-- `bridge_only`: KL `1.0589`, NLL `3.9102`, PPL `50.06`
-- `bridge_only_param_matched`: KL `1.0406`, NLL `3.8932`, PPL `49.18`
+- suppressing delegated attention hurts materially
+- suppressing delegated MLP hurts more
+- both are clearly needed
+- the pattern is stable across the original and fresh holdouts
 
-Interpretation: hidden-only Stage B improved hidden recovery but did not produce the desired output-level advantage.
+Main-holdout degradation relative to the full token-wise model:
 
-### Stage B Output-Aware
+- attention suppressed: `+0.103797` KL, `+0.218670` NLL
+- MLP suppressed: `+0.182743` KL, `+0.350897` NLL
 
-Three-seed hidden recovery summary:
+Fresh-holdout degradation:
 
-- `skip_only`: hidden MSE `25.51`, cosine `0.7461`
-- `hybrid_no_small`: hidden MSE `24.59`, cosine `0.7637`
-- `hybrid`: hidden MSE `22.85`, cosine `0.7868`
-- `bridge_only`: hidden MSE `22.16`, cosine `0.7825`
-- `bridge_only_param_matched`: hidden MSE `22.44`, cosine `0.7811`
+- attention suppressed: `+0.109496` KL, `+0.224608` NLL
+- MLP suppressed: `+0.182872` KL, `+0.379610` NLL
 
-Three-seed output probe summary:
+That was directional but not clean enough to justify a single attention-only or MLP-only architecture branch, so `v0_8` also remains analysis-only.
 
-- `skip_only`: KL `1.5273`, NLL `4.4687`, PPL `87.59`
-- `hybrid_no_small`: KL `0.6730`, NLL `3.5018`, PPL `33.23`
-- `hybrid`: KL `0.6553`, NLL `3.4235`, PPL `30.72`
-- `bridge_only`: KL `0.6463`, NLL `3.3939`, PPL `29.83`
-- `bridge_only_param_matched`: KL `0.6471`, NLL `3.3954`, PPL `29.87`
+## Bounded Generalization
 
-Seed-level results:
+The `v0_9` branch evaluated the frozen `v0.6.0` family of baselines outside the original Wikitext-style probes.
 
-- `hybrid > skip_only`: `3/3`
-- `hybrid > hybrid_no_small`: `3/3`
-- `hybrid > bridge_only`: `0/3`
-- `hybrid > bridge_only_param_matched`: `0/3`
+Benchmarks:
 
-Interpretation: output-aware Stage B materially strengthened the feasibility claim relative to no-small controls, but did not resolve the stronger bridge comparison.
+- HellaSwag
+- PIQA
+- WinoGrande
+- ARC-Easy
+- ARC-Challenge
+- LAMBADA OpenAI held-out LM slice
 
-### Entry-Tune Follow-Up
+Main result:
 
-Three-seed hidden summary after enabling `training.stage_b.train_entry_projector: true`:
+- external validity is real but mixed
+- the strongest carryover remains on LM-style evaluation
+- the multiple-choice pattern is not broad enough to support a strong “better than bridge controls across tasks” claim
 
-- `hybrid_frozen_entry`: hidden MSE `22.85`, cosine `0.7868`
-- `hybrid_train_entry`: hidden MSE `21.16`, cosine `0.7960`
-- `hybrid_no_small_frozen_entry`: hidden MSE `24.59`, cosine `0.7637`
-- `hybrid_no_small_train_entry`: hidden MSE `23.94`, cosine `0.7769`
+Selected generalization results:
 
-Three-seed output summary:
+- LAMBADA OpenAI, token-wise: KL `0.251354`, NLL `3.423984`
+- LAMBADA OpenAI, `bridge_only`: KL `0.254975`, NLL `3.433371`
+- LAMBADA OpenAI, `bridge_only_param_matched`: KL `0.266066`, NLL `3.446407`
+- HellaSwag accuracy: token-wise `0.671875`, `bridge_only` `0.656250`
+- ARC-Challenge accuracy: token-wise `0.442708`, `bridge_only` `0.432292`
+- PIQA accuracy: token-wise `0.723958`, `bridge_only` `0.734375`
+- ARC-Easy accuracy: token-wise `0.791667`, `bridge_only` `0.828125`
 
-- `hybrid_frozen_entry`: KL `0.6553`, NLL `3.4235`, PPL `30.72`
-- `hybrid_train_entry`: KL `0.6686`, NLL `3.4518`, PPL `31.61`
-- `hybrid_no_small_frozen_entry`: KL `0.6730`, NLL `3.5018`, PPL `33.23`
-- `hybrid_no_small_train_entry`: KL `0.6810`, NLL `3.4862`, PPL `32.74`
+Recommendation from `v0_9`:
 
-Key diagnostics:
+Stop and write the paper around `v0.6.0` plus benchmark generalization.
 
-- Hybrid entry grad norm mean: `0.2292`
-- Hybrid final entry update norm mean: `7.62`
-- Hybrid no-small final entry update norm mean: `11.70`
-- Tuned `hybrid` still beat tuned `hybrid_no_small` on KL/NLL in `2/3` seeds
-- Gap to `bridge_only` worsened from KL/NLL `0.0089 / 0.0296` to `0.0223 / 0.0579`
-
-Interpretation: the entry projector was active and trainable, but tuning it did not improve the main output metrics and did not close the bridge gap.
-
-## 10. Interpretation
-
-The project produced a qualified positive result, not a clean positive result.
-
-The positive part is that one-way latent delegation was real in the intended same-family Gemma-2 setting. The delegated path was used, it improved over `skip_only`, and after output-aware Stage B it also improved over the `hybrid_no_small` control at the output level. That means the delegated small-model computation was doing something beyond a pure passthrough interface.
-
-The negative part is equally important. Across hidden-only Stage B, output-aware Stage B, and the entry-tune follow-up, the hybrid did not beat the strong large-space bridge controls on the main held-out output metrics. Entry-projector finetuning made the hidden metrics better but made the hybrid output metrics worse relative to the frozen-entry output-aware baseline. That is strong evidence that better hidden recovery, as measured here, is not sufficient for better output behavior.
-
-## 11. What Is Supported
+## Supported Claims
 
 - Same-family one-way latent delegation is feasible on a single RTX 5090-class GPU.
-- The Gemma-2 9B -> 2B hybrid path runs successfully at `seq_len=256` in the conservative split.
-- The delegated path is functionally used, not merely bypassed by the gate.
-- The hybrid improves over `skip_only`.
-- After output-aware Stage B, the hybrid also improves over the no-small control at the output level.
-- The project provides evidence that delegated small-model computation can be useful relative to skip/no-small controls under these constraints.
+- Delegated small-model computation improves over skip/no-small controls.
+- In the bounded Gemma-2 9B -> 2B setting, the frozen `v0.6.0` token-wise hybrid beats strong bridge controls on the main held-out LM-style probes.
+- That bridge win survives an untouched fresh holdout slice.
+- Bounded external generalization exists, with the clearest carryover on LM-style evaluation.
 
-## 12. What Is NOT Supported
+## Unsupported Claims
 
-- This work does not support the claim that delegated small-model computation is better than strong bridge-based alternatives.
-- This work does not support the claim that hidden MSE/cosine improvement reliably predicts output-level quality improvement.
-- This work does not support a transition to Stage C under the repo's own gating rules.
-- This work does not show end-task reasoning gains, benchmark superiority, or general-purpose thought transfer.
+- This work does not support a broad claim of downstream superiority over bridge baselines.
+- This work does not support a claim that token-wise delegation is uniformly better across external task families.
+- This work does not support cross-family robustness, broad replication, or Stage C scaling.
+- This work does not support a full thought-transfer framing.
 
-## 13. Limitations
+## Final Interpretation
 
-- Only one model family was tested in earnest.
-- Only one conservative split was evaluated deeply.
-- Training remained lightweight by design and did not include broader data or benchmark sweeps.
-- Frozen-backbone constraints were intentional, but they also limit how much representational mismatch can be corrected.
-- Output evaluation used lightweight held-out text probes rather than large benchmark suites.
-- The project was run under a one-GPU, one-month feasibility budget rather than a scaling-optimized research budget.
+The repo no longer ends at the `v0.5.1` qualified feasibility result. The continuation work produced a stronger bounded result: a two-path token-wise delegated hybrid that beats both bridge controls on the main held-out LM-style probes in the same-family Gemma-2 setting.
 
-## 14. Failure Analysis
+At the same time, the broader evaluation remains mixed. So the strongest defensible paper framing is:
 
-The final negative comparison against the bridge controls is not explained by a trivial machine or implementation failure.
+- strong positive evidence inside the bounded Gemma-2 setting
+- mixed but nonzero broader generalization
+- careful refusal to claim broad downstream superiority
 
-- CUDA, bitsandbytes, Hugging Face auth, and the Gemma path all worked.
-- The hybrid forward path ran reliably at `seq_len=256`.
-- The delegated path was measurably active through nonzero gates and delta norms.
-- The bridge control was not winning only because of a tiny parameter budget; the parameter-matched bridge remained competitive.
-- Entry-projector finetuning was explicitly tested and did not resolve the gap.
+## Paperization Pointers
 
-The most plausible current reading is that, in this conservative architecture and data regime, a strong large-space bridge is a better use of limited trainable capacity than routing through the frozen small-model block.
+Paper prose sources:
 
-## 15. Conclusion
+- [abstract.md](</E:/lab/latent-delegation/notes/paper/abstract.md>)
+- [introduction.md](</E:/lab/latent-delegation/notes/paper/introduction.md>)
+- [method.md](</E:/lab/latent-delegation/notes/paper/method.md>)
+- [experiments.md](</E:/lab/latent-delegation/notes/paper/experiments.md>)
+- [results.md](</E:/lab/latent-delegation/notes/paper/results.md>)
+- [limitations.md](</E:/lab/latent-delegation/notes/paper/limitations.md>)
+- [conclusion.md](</E:/lab/latent-delegation/notes/paper/conclusion.md>)
+- [claim_boundary.md](</E:/lab/latent-delegation/notes/paper/claim_boundary.md>)
 
-In a single-GPU same-family Gemma-2 9B -> 2B setting, one-way latent delegation is real and improves over skip/no-small controls, including at the output level after output-aware Stage B, but it does not outperform strong large-space bridge baselines.
+Generated paper assets:
 
-Therefore, this work is evidence for feasibility of delegated latent computation, not evidence that delegated small-model computation is superior to strong bridge-based alternatives.
-
-The correct end state for this milestone is to stop experiments, freeze the artifacts, and write up the qualified result rather than widening scope to Stage C.
-
-## 16. Future Work
-
-Future work, if ever resumed, should stay minimal and hypothesis-driven. The next useful question would be a single architectural variable rather than a broader sweep, but that work is intentionally outside the `v0.5.1` freeze. The present milestone is complete as a qualified feasibility result.
+- [tables.md](</E:/lab/latent-delegation/notes/paper/tables.md>)
+- [figures.md](</E:/lab/latent-delegation/notes/paper/figures.md>)
+- [artifacts/paper_tables](</E:/lab/latent-delegation/artifacts/paper_tables>)
+- [artifacts/paper_figures](</E:/lab/latent-delegation/artifacts/paper_figures>)

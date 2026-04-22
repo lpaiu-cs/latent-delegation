@@ -7,94 +7,120 @@ Default pair:
 - large model: `google/gemma-2-9b`
 - small model: `google/gemma-2-2b`
 
-## Project Goal
+## Frozen State
 
-Test whether a large same-family model can keep ownership of the master residual stream while delegating a middle block of computation to a smaller same-family model through latent-space transfer.
+`v0.6.0` is the frozen current best model/result in this repo.
 
-This repo does **not** claim full thought transfer, full-model equivalence, or benchmark SOTA.
+- `v0_7` is an analysis-only Idea 5 discovery branch.
+- `v0_8` is an analysis-only Idea 2 attribution branch.
+- `v0_9` is a bounded external generalization branch.
+- Stage C was not started.
+- The current repo task is paperization, not new model-building.
 
-## Current Final Status
+## Main Result
 
-The repository is frozen at `v0.5.1` as a qualified research result.
+The strongest supported result is a frozen two-path token-wise delegated hybrid inside the bounded Gemma-2 9B -> 2B setting.
 
-- real-hardware Gemma-2 9B -> 2B bring-up succeeded on the target RTX 5090-class Windows machine
-- Stage A representation alignment was stable
-- hidden-only Stage B improved hidden recovery over `skip_only` and `hybrid_no_small`
-- output-aware Stage B improved the hybrid over `skip_only` and `hybrid_no_small` at the output level
-- the hybrid did **not** outperform the strong large-space bridge baselines
-- entry-projector finetuning did **not** resolve that gap
-- Stage C was intentionally **not** pursued
+That model fixes the removed large window to `24..27` and mixes two delegated small-model paths:
 
-## v0.6 Continuation Track
+- path B: `24..27 -> 14..19`
+- path A: `24..27 -> 16..18`
 
-`v0.5.1` remains frozen. The continuation work now lives under the dedicated `v0_6` namespace:
+It beats:
 
-- `configs/v0_6/`
-- `scripts/v0_6/`
-- `artifacts/v0_6/`
-- `notes/v0_6/`
+- the best single-path shortlisted candidates
+- the token-wise no-small control
+- `bridge_only`
+- the parameter-matched bridge
 
-Start with:
+Those wins hold on both:
 
-- `notes/v0_6/continuation_handoff.md`
-- `notes/v0_6/research_plan.md`
-- `powershell -ExecutionPolicy Bypass -File .\scripts\v0_6\run_phase1_debug_smoke.ps1`
+- the original held-out Wikitext-style probe
+- a fresh untouched holdout slice
 
-The current local workspace can run the debug continuation smoke path and write `v0_6` artifacts, but real Gemma continuation runs remain subject to the environment blockers recorded in `notes/blockers.md`.
+Key `v0.6.0` metrics:
 
-## Quick Result Snapshot
+- original holdout, `tokenwise_mixture`: KL `0.255739`, NLL `2.980182`
+- original holdout, `bridge_only`: KL `0.288448`, NLL `3.072051`
+- fresh holdout, `tokenwise_mixture`: KL `0.248886`, NLL `3.185004`
+- fresh holdout, `bridge_only`: KL `0.289564`, NLL `3.295081`
 
-- Smoke matrix: `14/14` cases passed
-- Largest successful smoke context: `seq_len=256` for `full_large`, `skip_only`, `bridge_only`, and `hybrid`
-- Stage A: train loss `354 -> 91`, held-out cosine `0.0078 -> 0.8447`
-- Output-aware Stage B output probe:
-  - `hybrid`: KL `0.6553`, NLL `3.4235`
-  - `hybrid_no_small`: KL `0.6730`, NLL `3.5018`
-  - `bridge_only`: KL `0.6463`, NLL `3.3939`
-  - `bridge_only_param_matched`: KL `0.6471`, NLL `3.3954`
-- Entry-tune follow-up:
-  - `hybrid_frozen_entry`: KL `0.6553`, NLL `3.4235`
-  - `hybrid_train_entry`: KL `0.6686`, NLL `3.4518`
+## Claim Boundary
 
-## Strongest Claim
+Supported:
 
-In the same-family Gemma-2 9B -> 2B setting, one-way latent delegation is real, runnable on a single GPU, and improves over `skip_only` and no-small controls. After output-aware Stage B, that improvement is visible at the output level as well.
+- same-family one-way latent delegation is feasible on a single RTX 5090-class GPU
+- delegated small-model computation can beat skip/no-small controls
+- in this bounded Gemma-2 setting, the frozen `v0.6.0` token-wise hybrid beats strong bridge controls on the main held-out LM-style probes
 
-## Non-Claim
+Not supported:
 
-This repo does **not** show that delegated small-model computation is better than strong large-space bridge-based alternatives.
+- a broad claim of downstream superiority over bridge baselines
+- a claim that the result already generalizes cleanly across broader task families
+- a claim of full thought transfer, general reasoning superiority, or cross-family robustness
 
-## Default Architecture
+## Broader Evaluation
 
-Conservative split, 0-indexed:
+`v0_9` tested bounded external generalization without training new models.
 
-- large prefix: layers `0..23`
-- removed large block: layers `24..29`
-- large suffix: layers `30..41`
-- small reference hidden: after layer `13`
-- delegated small block: layers `14..19`
+Benchmarks:
 
-Hybrid path:
+- HellaSwag
+- PIQA
+- WinoGrande
+- ARC-Easy
+- ARC-Challenge
+- LAMBADA OpenAI held-out LM slice
 
-1. Run the large prefix.
-2. Project the large hidden into small latent space.
-3. Run frozen small layers `14..19`.
-4. Map back to large space with a low-rank return adapter.
-5. Add the returned delta through a learned scalar gate.
-6. Continue through the large suffix and large LM head.
+Outcome:
 
-Implemented baselines:
+- strongest generalization remains on LM-style evaluation
+- multiple-choice transfer is mixed rather than broad
+- recommendation: stop and write the paper around `v0.6.0` plus bounded generalization
 
-- `FullLargeModel`
-- `SkipOnlyLargeModel`
-- `BridgeOnlyLargeModel`
-- `HybridNoSmallModel`
-- `HybridDelegationModel`
-- `BridgeOnlyParamMatched`
+Representative `v0_9` readout:
 
-## Windows-Native Setup
+- LAMBADA OpenAI, token-wise: KL `0.251354`, NLL `3.423984`
+- LAMBADA OpenAI, `bridge_only`: KL `0.254975`, NLL `3.433371`
+- ARC-Challenge accuracy: token-wise `0.442708`, `bridge_only` `0.432292`
+- ARC-Easy accuracy: token-wise `0.791667`, `bridge_only` `0.828125`
 
-Native Windows PowerShell is the default execution path on this machine.
+## Repo Progression
+
+- `v0.5.1`: qualified feasibility result; hybrid beat skip/no-small controls but not bridge controls
+- Phase 1 (`v0_6`): rejected the legacy fixed contiguous `24..29 -> 14..19` split as the best default and shortlisted `{24..27 -> 14..19, 24..27 -> 16..18}`
+- Idea 4 static mixture: first pilot result that beat both bridge controls on KL/NLL
+- `v0.6.0` token-wise Idea 4: improved further and became the frozen best branch
+- `v0_7`: monotone corridor discovery strengthened the alignment story, but its bounded empirical candidate did not beat `v0.6.0`
+- `v0_8`: attribution showed both delegated attention and delegated MLP matter, with larger degradation when MLP is suppressed
+- `v0_9`: bounded generalization found real but mixed external validity
+
+## Paper-Facing Files
+
+Top-level narrative:
+
+- [final_report.md](</E:/lab/latent-delegation/notes/final_report.md>)
+- [one_page_summary.md](</E:/lab/latent-delegation/notes/one_page_summary.md>)
+
+Paper prose sources:
+
+- [abstract.md](</E:/lab/latent-delegation/notes/paper/abstract.md>)
+- [introduction.md](</E:/lab/latent-delegation/notes/paper/introduction.md>)
+- [method.md](</E:/lab/latent-delegation/notes/paper/method.md>)
+- [experiments.md](</E:/lab/latent-delegation/notes/paper/experiments.md>)
+- [results.md](</E:/lab/latent-delegation/notes/paper/results.md>)
+- [limitations.md](</E:/lab/latent-delegation/notes/paper/limitations.md>)
+- [conclusion.md](</E:/lab/latent-delegation/notes/paper/conclusion.md>)
+- [claim_boundary.md](</E:/lab/latent-delegation/notes/paper/claim_boundary.md>)
+- [tables.md](</E:/lab/latent-delegation/notes/paper/tables.md>)
+- [figures.md](</E:/lab/latent-delegation/notes/paper/figures.md>)
+
+Canonical generated assets:
+
+- [artifacts/paper_tables](</E:/lab/latent-delegation/artifacts/paper_tables>)
+- [artifacts/paper_figures](</E:/lab/latent-delegation/artifacts/paper_figures>)
+
+## Repro Commands
 
 Install dependencies:
 
@@ -102,8 +128,6 @@ Install dependencies:
 py -3.12 -m pip install --upgrade pip
 py -3.12 -m pip install -r requirements.txt
 ```
-
-## Reproduce The Smoke Path
 
 Environment and auth sanity:
 
@@ -117,95 +141,52 @@ Real Gemma smoke matrix:
 powershell -ExecutionPolicy Bypass -File .\scripts\real_gemma_smoke.ps1
 ```
 
-## Reproduce The Key Pilot Runs
-
-Stage A pilot:
+Bounded generalization evaluation:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\run_stage_a_pilot.ps1
+powershell -ExecutionPolicy Bypass -File .\scripts\v0_9\run_generalization_eval.ps1
 ```
 
-Stage B hidden-only pilot:
+Regenerate paper tables and figure specs from frozen artifacts:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\run_stage_b_pilot.ps1 `
-  -StageACheckpoint .\artifacts\stage_a_pilot_ckpt\stage_a_checkpoint.pt
+powershell -ExecutionPolicy Bypass -File .\scripts\run_paper_assets.ps1
 ```
 
-Stage B hidden-only ablation:
+## Current Result Files
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\run_stage_b_ablation.ps1 `
-  -StageACheckpoint .\artifacts\stage_a_pilot_ckpt\stage_a_checkpoint.pt
-```
+Frozen `v0.6.0` decision notes:
 
-Stage B hidden-only output probe:
+- [idea4_tokenwise_combined_decision.md](</E:/lab/latent-delegation/notes/v0_6/idea4_tokenwise_combined_decision.md>)
+- [idea4_tokenwise_report.md](</E:/lab/latent-delegation/notes/v0_6/idea4_tokenwise_report.md>)
+- [idea4_tokenwise_output_probe.md](</E:/lab/latent-delegation/notes/v0_6/idea4_tokenwise_output_probe.md>)
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\run_stage_b_output_probe.ps1
-```
+Analysis branches:
 
-Stage B output-aware ablation:
+- [idea5_combined_decision.md](</E:/lab/latent-delegation/notes/v0_7/idea5_combined_decision.md>)
+- [idea2_combined_decision.md](</E:/lab/latent-delegation/notes/v0_8/idea2_combined_decision.md>)
 
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\run_stage_b_ablation.ps1 `
-  -Config .\configs\gemma2_conservative_pilot_256_stage_b_output_aware.yaml `
-  -StageACheckpoint .\artifacts\stage_a_pilot_ckpt\stage_a_checkpoint.pt
-```
+Generalization:
 
-Stage B entry-tune follow-up:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\run_stage_b_entry_tune.ps1 `
-  -StageACheckpoint .\artifacts\stage_a_pilot_ckpt\stage_a_checkpoint.pt
-```
-
-Freeze figures and manifest from existing artifacts only:
-
-```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\freeze_v051.ps1
-```
-
-## Final Reports And Release Notes
-
-Key release documents:
-
-- `notes/final_report.md`
-- `notes/release_notes_v0.5.1.md`
-- `notes/abstract.md`
-- `notes/one_page_summary.md`
-- `notes/reproducibility.md`
-- `notes/real_hardware_report.md`
-
-Key frozen release artifacts:
-
-- `artifacts/manifest_v0.5.1.json`
-- `artifacts/final_summary_table.csv`
-- `figures/hidden_metrics_stage_b.png`
-- `figures/output_metrics_stage_b.png`
-- `figures/milestone_progression.png`
-- `figures/entry_tune_effect.png`
+- [generalization_results.md](</E:/lab/latent-delegation/notes/v0_9/generalization_results.md>)
+- [generalization_summary_for_paper.md](</E:/lab/latent-delegation/notes/v0_9/generalization_summary_for_paper.md>)
 
 ## Repo Layout
 
 - `configs/`: YAML experiment configs
-- `scripts/`: Windows-native PowerShell wrappers and shell helpers
-- `src/models/`: Gemma hybrid and baseline implementations
+- `scripts/`: Windows-native PowerShell runners
+- `src/models/`: frozen-backbone hybrid and baseline implementations
 - `src/train/`: Stage A / B / C training CLIs
-- `src/eval/`: lightweight evaluation paths
-- `src/analysis/`: Stage B comparison and reporting helpers
-- `src/tools/`: milestone/report generation utilities
-- `tests/`: config, shape, frozen-param, and helper coverage
-- `artifacts/`: frozen JSON/CSV/checkpoint outputs
-- `notes/`: reports, release notes, and reproducibility docs
-
-## Stage C Note
-
-Stage C was intentionally not pursued for `v0.5.1`. The gating condition was that the delegated hybrid should first beat or at least match the stronger bridge controls on the lightweight output metrics. That did not happen, and entry-projector finetuning did not fix it, so the repo was frozen and written up as a qualified feasibility result.
+- `src/v0_6/`: continuation and Idea 4 code
+- `src/v0_7/`: Idea 5 discovery tooling
+- `src/v0_8/`: Idea 2 attribution tooling
+- `src/v0_9/`: bounded generalization evaluation tooling
+- `src/tools/`: reporting and paper-asset generation utilities
+- `tests/`: unit coverage for shapes, frozen params, and analysis utilities
+- `artifacts/`: frozen experiment outputs
+- `notes/`: reports, decision notes, and paper prose sources
 
 ## Tests
-
-On Windows:
 
 ```powershell
 py -3.12 -m pytest -q
