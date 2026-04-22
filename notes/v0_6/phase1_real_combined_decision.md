@@ -1,5 +1,12 @@
 # Phase 1 Real Combined Decision
 
+## Idea 4 Starting Point
+
+- The legacy contiguous split `24..29 -> 14..19` is rejected as the best default.
+- The real continuation shortlist is exactly `{24..27 -> 14..19, 24..27 -> 16..18}`.
+- Both shortlisted candidates are scientifically close enough that forcing a single hard winner would overstate the evidence.
+- Idea 4 is justified precisely because Phase 1 produced a near-tied two-window shortlist rather than a clean single-window winner.
+
 1. Does real Gemma evidence still reject the frozen contiguous `6 -> 6` split as the best default?
 Yes. Real stage signatures moved away from the frozen contiguous `24..29 -> 14..19` prior, and real Phase 1A screening showed both `24..27 -> 14..19` and `24..27 -> 16..18` beating the legacy split by a large margin on KL, NLL, PPL, and top-1 agreement.
 
