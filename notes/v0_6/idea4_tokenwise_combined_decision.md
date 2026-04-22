@@ -1,5 +1,12 @@
 # Idea 4 Token-Wise Combined Decision
 
+## v0.6.0 Milestone
+
+- The static mixture bridge win survives on a fresh untouched holdout.
+- Token-wise Idea 4 improves further and also beats bridge controls on both holdout policies.
+- Idea 4 is now the current best branch.
+- The next branch is Idea 5, not Stage C.
+
 1. Does the static mixture win survive on the fresh untouched holdout?
 Yes. On the untouched `wikitext-103-v1` test slice, the static mixture still beat both bridge controls on KL and NLL in all 3 seeds. The aggregate deltas were `-0.022320 / -0.082033` versus `bridge_only` and `-0.017189 / -0.049553` versus the mixture-budget parameter-matched bridge.
 
