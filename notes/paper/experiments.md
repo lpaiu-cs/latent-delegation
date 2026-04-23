@@ -6,7 +6,7 @@ All experiments were run in a native Windows workflow on a single RTX 5090-class
 
 ## Development Holdout And Untouched Confirmation Holdout
 
-We distinguish two LM-style holdout policies. The first is a development holdout: the original held-out slice reused during model development and model-selection decisions. The second is an untouched confirmation holdout: a fresh `wikitext-103-v1` test-split slice sampled only after the winning continuation structure had been fixed. The untouched confirmation holdout contains `32` sequences at `seq_len = 256` sampled with seed `7606`. The paper's strongest claim should be read through this confirmation holdout first, because it is the stricter safeguard against repeated reuse of the development slice.
+We distinguish two LM-style holdout policies. The first is a development holdout: the original held-out slice reused during model development and model-selection decisions. The second is an untouched confirmation holdout: a fresh `wikitext-103-v1` test-split slice sampled only after the winning continuation structure had been fixed. The untouched confirmation holdout contains `32` sequences at `seq_len = 256` sampled with seed `7606`. We treat the untouched confirmation holdout as the primary basis for the strongest internal claim because it is the stricter safeguard against repeated reuse of the development slice.
 
 ## Primary Metrics
 

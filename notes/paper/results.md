@@ -6,12 +6,7 @@ The fixed-window hybrid establishes feasibility but not the final claim. In its 
 
 ## Asymmetric Window Search Rejects the Fixed Contiguous Prior
 
-A real-model local window search shows that the original fixed contiguous substitution is the wrong structural prior. The legacy `24..29 -> 14..19` candidate is substantially worse than the two candidates that later become the shortlist. After confirmation, the shortlist remains near-tied:
-
-- `24..27 -> 14..19`: KL/NLL `0.281641 / 3.078029`
-- `24..27 -> 16..18`: KL/NLL `0.282215 / 3.074461`
-
-Here `24..27 -> 14..19` is slightly better on KL and top-5 overlap, whereas `24..27 -> 16..18` is slightly better on NLL, perplexity, and top-1 agreement. This result matters because it changes the structural prior before any mixture model is introduced.
+A real-model local window search shows that the original fixed contiguous substitution is the wrong structural prior. The legacy `24..29 -> 14..19` candidate is substantially worse than the two candidates that later become the shortlist. After confirmation, the shortlist remains near-tied: `24..27 -> 14..19` reaches KL/NLL `0.281641 / 3.078029`, whereas `24..27 -> 16..18` reaches `0.282215 / 3.074461`. The first is slightly better on KL and top-5 overlap; the second is slightly better on NLL, perplexity, and top-1 agreement. Table 1 summarizes how that shortlist then leads to the final routing result.
 
 **Table 1. Structural progression from the fixed-window baseline to the final routing model.**
 
@@ -28,21 +23,7 @@ The static two-path mixture is the first model to beat both bridge controls on t
 
 ## Token-Wise Two-Path Routing Gives the Best Final Model
 
-The token-wise two-path router improves further over the static mixture and remains ahead of both bridge controls on both holdout policies.
-
-Untouched confirmation holdout:
-
-- token-wise routing: KL/NLL `0.248886 / 3.185004`
-- static mixture: `0.267244 / 3.213048`
-- `bridge_only`: `0.289564 / 3.295081`
-- parameter-matched bridge: `0.301746 / 3.327024`
-
-Development holdout:
-
-- token-wise routing: KL/NLL `0.255739 / 2.980182`
-- static mixture: `0.267095 / 3.000438`
-- `bridge_only`: `0.288448 / 3.072051`
-- parameter-matched bridge: `0.302323 / 3.102081`
+The token-wise two-path router improves further over the static mixture and remains ahead of both bridge controls on both holdout policies. Table 2 gives the main comparison. On the untouched confirmation holdout, token-wise routing reaches KL/NLL `0.248886 / 3.185004`, compared with `0.267244 / 3.213048` for the static mixture, `0.289564 / 3.295081` for `bridge_only`, and `0.301746 / 3.327024` for the parameter-matched bridge. On the development holdout, the same ordering remains: `0.255739 / 2.980182` for token-wise routing, `0.267095 / 3.000438` for the static mixture, `0.288448 / 3.072051` for `bridge_only`, and `0.302323 / 3.102081` for the parameter-matched bridge.
 
 The bridge comparison is clean: on both the development holdout and the untouched confirmation holdout, the token-wise model wins on the primary metrics in all three seeds against both bridge baselines. The no-small comparison is also favorable in aggregate KL and NLL on both holdouts, but it is slightly less clean on the untouched confirmation holdout, where the joint seed-level KL/NLL win count is `2/3` rather than `3/3`. That caveat is weaker than the bridge result, but it should still be stated explicitly.
 

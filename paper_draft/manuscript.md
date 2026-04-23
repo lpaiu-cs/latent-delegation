@@ -26,7 +26,7 @@ Our work sits between positive results on representation transfer and negative r
 
 At the same time, recent negative results on cross-scale transfer motivate a conservative design and a strong control set. We therefore remain within one model family, keep all backbone weights frozen, and evaluate against learned bridge baselines that stay entirely in large hidden space. These controls matter because a positive result against weak baselines alone would not distinguish useful delegated computation from a better use of trainable capacity in the large model's own latent space.
 
-The same-family choice is grounded in Gemma-2 itself. Gemma-2 2B and 9B share the same family structure while still differing enough in scale to make cross-scale mismatch meaningful. For bounded external evaluation, we use standard log-likelihood-compatible benchmarks: HellaSwag (Zellers et al., 2019), PIQA (Bisk et al., 2020), WinoGrande (Sakaguchi et al., 2020), ARC-Easy and ARC-Challenge (Clark et al., 2018), and LAMBADA (Paperno et al., 2016).
+Our contribution is not to show that same-family latent alignment is possible in principle. The contribution is operational: under frozen-backbone single-GPU constraints, fixed contiguous delegation fails, whereas asymmetric shortlist selection followed by static and token-wise two-path routing can surpass strong large-space bridges on held-out LM-style probes. The same-family choice is grounded in Gemma-2 itself. Gemma-2 2B and 9B share the same family structure while still differing enough in scale to make cross-scale mismatch meaningful. For bounded external evaluation, we use standard log-likelihood-compatible benchmarks: HellaSwag (Zellers et al., 2019), PIQA (Bisk et al., 2020), WinoGrande (Sakaguchi et al., 2020), ARC-Easy and ARC-Challenge (Clark et al., 2018), and LAMBADA (Paperno et al., 2016).
 
 ## 3. Setup And Problem Statement
 
@@ -34,7 +34,7 @@ We study one-way latent delegation. The large model owns the input path, the mas
 
 The default models are Gemma-2 9B as the large model and Gemma-2 2B as the small model. The original fixed-window baseline removes large layers `24..29` and replaces them with delegated small layers `14..19`, entered from the small hidden state immediately before that delegated block. Concretely, the large prefix is layers `0..23`, the removed large block is `24..29`, the large suffix is `30..41`, the small reference hidden is taken after layer `13`, and the delegated small block is `14..19`.
 
-The scientific question is not whether such a hybrid can merely run. The stronger question is whether delegated small-model computation adds value beyond strong controls, including `skip_only` removal, no-small interface controls, learned bridge baselines that remain in large hidden space, and parameter-matched bridge baselines. The paper should be read as an answer to that stronger question.
+The scientific question is not whether such a hybrid can merely run. The stronger question is whether delegated small-model computation adds value beyond strong controls, including `skip_only` removal, no-small interface controls, learned bridge baselines that remain in large hidden space, and parameter-matched bridge baselines. The empirical protocol is designed to answer that stronger question directly.
 
 ## 4. Method
 
@@ -94,7 +94,7 @@ All experiments were run in a native Windows workflow on a single RTX 5090-class
 
 ### 5.2 Development Holdout And Untouched Confirmation Holdout
 
-We distinguish two LM-style holdout policies. The first is a development holdout: the original held-out slice reused during model development and model-selection decisions. The second is an untouched confirmation holdout: a fresh `wikitext-103-v1` test-split slice sampled only after the winning continuation structure had been fixed. The untouched confirmation holdout contains `32` sequences at `seq_len = 256` sampled with seed `7606`. The paper's strongest claim should be read through this confirmation holdout first, because it is the stricter safeguard against repeated reuse of the development slice.
+We distinguish two LM-style holdout policies. The first is a development holdout: the original held-out slice reused during model development and model-selection decisions. The second is an untouched confirmation holdout: a fresh `wikitext-103-v1` test-split slice sampled only after the winning continuation structure had been fixed. The untouched confirmation holdout contains `32` sequences at `seq_len = 256` sampled with seed `7606`. We treat the untouched confirmation holdout as the primary basis for the strongest internal claim because it is the stricter safeguard against repeated reuse of the development slice.
 
 ### 5.3 Primary Metrics
 
@@ -112,12 +112,7 @@ The fixed-window hybrid establishes feasibility but not the final claim. In its 
 
 ### 6.2 Asymmetric Window Search Rejects the Fixed Contiguous Prior
 
-A real-model local window search shows that the original fixed contiguous substitution is the wrong structural prior. The legacy `24..29 -> 14..19` candidate is substantially worse than the two candidates that later become the shortlist. After confirmation, the shortlist remains near-tied:
-
-- `24..27 -> 14..19`: KL/NLL `0.281641 / 3.078029`
-- `24..27 -> 16..18`: KL/NLL `0.282215 / 3.074461`
-
-Here `24..27 -> 14..19` is slightly better on KL and top-5 overlap, whereas `24..27 -> 16..18` is slightly better on NLL, perplexity, and top-1 agreement. This result matters because it changes the structural prior before any mixture model is introduced.
+A real-model local window search shows that the original fixed contiguous substitution is the wrong structural prior. The legacy `24..29 -> 14..19` candidate is substantially worse than the two candidates that later become the shortlist. After confirmation, the shortlist remains near-tied: `24..27 -> 14..19` reaches KL/NLL `0.281641 / 3.078029`, whereas `24..27 -> 16..18` reaches `0.282215 / 3.074461`. The first is slightly better on KL and top-5 overlap; the second is slightly better on NLL, perplexity, and top-1 agreement. Table 1 summarizes how that shortlist then leads to the final routing result.
 
 **Table 1. Structural progression from the fixed-window baseline to the final routing model.**
 
@@ -134,21 +129,7 @@ The static two-path mixture is the first model to beat both bridge controls on t
 
 ### 6.4 Token-Wise Two-Path Routing Gives the Best Final Model
 
-The token-wise two-path router improves further over the static mixture and remains ahead of both bridge controls on both holdout policies.
-
-Untouched confirmation holdout:
-
-- token-wise routing: KL/NLL `0.248886 / 3.185004`
-- static mixture: `0.267244 / 3.213048`
-- `bridge_only`: `0.289564 / 3.295081`
-- parameter-matched bridge: `0.301746 / 3.327024`
-
-Development holdout:
-
-- token-wise routing: KL/NLL `0.255739 / 2.980182`
-- static mixture: `0.267095 / 3.000438`
-- `bridge_only`: `0.288448 / 3.072051`
-- parameter-matched bridge: `0.302323 / 3.102081`
+The token-wise two-path router improves further over the static mixture and remains ahead of both bridge controls on both holdout policies. Table 2 gives the main comparison. On the untouched confirmation holdout, token-wise routing reaches KL/NLL `0.248886 / 3.185004`, compared with `0.267244 / 3.213048` for the static mixture, `0.289564 / 3.295081` for `bridge_only`, and `0.301746 / 3.327024` for the parameter-matched bridge. On the development holdout, the same ordering remains: `0.255739 / 2.980182` for token-wise routing, `0.267095 / 3.000438` for the static mixture, `0.288448 / 3.072051` for `bridge_only`, and `0.302323 / 3.102081` for the parameter-matched bridge.
 
 The bridge comparison is clean: on both the development holdout and the untouched confirmation holdout, the token-wise model wins on the primary metrics in all three seeds against both bridge baselines. The no-small comparison is also favorable in aggregate KL and NLL on both holdouts, but it is slightly less clean on the untouched confirmation holdout, where the joint seed-level KL/NLL win count is `2/3` rather than `3/3`. That caveat is weaker than the bridge result, but it should still be stated explicitly.
 
@@ -211,4 +192,4 @@ The resulting token-wise two-path model beats both strong bridge controls on a d
 
 ## Appendix A
 
-Appendix A lists the supplementary paper-facing source files, canonical tables, figure specifications, bibliography, and reproducibility materials used to produce the manuscript. In the final camera-ready version, each item should be linked either to an appendix section or to a supplementary release bundle.
+Appendix A enumerates the supplementary paper-facing source files, canonical tables, figure specifications, bibliography, and reproducibility materials that accompany this manuscript.
