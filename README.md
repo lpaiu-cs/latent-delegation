@@ -112,6 +112,7 @@ Paper prose sources:
 - [limitations.md](</E:/lab/latent-delegation/notes/paper/limitations.md>)
 - [conclusion.md](</E:/lab/latent-delegation/notes/paper/conclusion.md>)
 - [claim_boundary.md](</E:/lab/latent-delegation/notes/paper/claim_boundary.md>)
+- [reproducibility.md](</E:/lab/latent-delegation/notes/paper/reproducibility.md>)
 - [tables.md](</E:/lab/latent-delegation/notes/paper/tables.md>)
 - [figures.md](</E:/lab/latent-delegation/notes/paper/figures.md>)
 
@@ -119,6 +120,12 @@ Canonical generated assets:
 
 - [artifacts/paper_tables](</E:/lab/latent-delegation/artifacts/paper_tables>)
 - [artifacts/paper_figures](</E:/lab/latent-delegation/artifacts/paper_figures>)
+- [artifacts/paper_release](</E:/lab/latent-delegation/artifacts/paper_release>)
+
+Submission scaffold:
+
+- [manuscript.md](</E:/lab/latent-delegation/paper_draft/manuscript.md>)
+- [appendix.md](</E:/lab/latent-delegation/paper_draft/appendix.md>)
 
 ## Repro Commands
 
@@ -151,6 +158,12 @@ Regenerate paper tables and figure specs from frozen artifacts:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\run_paper_assets.ps1
+```
+
+Regenerate the reproducibility package:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\run_paper_release.ps1
 ```
 
 ## Current Result Files

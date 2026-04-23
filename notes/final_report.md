@@ -229,6 +229,7 @@ Paper prose sources:
 - [limitations.md](</E:/lab/latent-delegation/notes/paper/limitations.md>)
 - [conclusion.md](</E:/lab/latent-delegation/notes/paper/conclusion.md>)
 - [claim_boundary.md](</E:/lab/latent-delegation/notes/paper/claim_boundary.md>)
+- [reproducibility.md](</E:/lab/latent-delegation/notes/paper/reproducibility.md>)
 
 Generated paper assets:
 
@@ -236,3 +237,9 @@ Generated paper assets:
 - [figures.md](</E:/lab/latent-delegation/notes/paper/figures.md>)
 - [artifacts/paper_tables](</E:/lab/latent-delegation/artifacts/paper_tables>)
 - [artifacts/paper_figures](</E:/lab/latent-delegation/artifacts/paper_figures>)
+- [artifacts/paper_release](</E:/lab/latent-delegation/artifacts/paper_release>)
+
+Submission draft:
+
+- [manuscript.md](</E:/lab/latent-delegation/paper_draft/manuscript.md>)
+- [appendix.md](</E:/lab/latent-delegation/paper_draft/appendix.md>)

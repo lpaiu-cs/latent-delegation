@@ -1,6 +1,6 @@
 # Paper Draft Scaffold
 
-This directory is a lightweight manuscript scaffold built from the paper-facing sources in [notes/paper](</E:/lab/latent-delegation/notes/paper>).
+This directory is a markdown-first submission scaffold built from the paper-facing sources in [notes/paper](</E:/lab/latent-delegation/notes/paper>).
 
 Current source bundle:
 
@@ -16,3 +16,8 @@ Current source bundle:
 - [figures.md](</E:/lab/latent-delegation/notes/paper/figures.md>)
 
 The scaffold is markdown-first. It exists to keep a paper draft organized without changing any experimental artifact numbers.
+
+Current draft files:
+
+- [manuscript.md](</E:/lab/latent-delegation/paper_draft/manuscript.md>)
+- [appendix.md](</E:/lab/latent-delegation/paper_draft/appendix.md>)
