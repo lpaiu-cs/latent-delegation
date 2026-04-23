@@ -6,7 +6,7 @@ Let `h_t^L` denote the large-model hidden state at token position `t` after the 
 
 `Delta_{p,t} = R_p(S_p(E_p(N(h_t^L))))`.
 
-In the single-path case, the hybrid hidden state after the removed large block is
+For the single-path fixed-window hybrid, we write `Delta_t := Delta_{p,t}` for the active delegated path. The hybrid hidden state after the removed large block is then
 
 `h_t^H = h_t^L + Delta_t`,
 
@@ -42,7 +42,7 @@ The decisive training regime is output-aware Stage B. Its implemented objective 
 
 `L_B = MSE(h^H, h^T) + CosineLoss(h^H, h^T) + lambda_KL L_KL + lambda_CE L_CE + lambda_D ||Delta||_2^2`,
 
-where `h^T` is the frozen large-model hidden state after the removed large block, `L_KL` is teacher-logit KL, and `L_CE` is shifted next-token cross-entropy. In the confirmed runs, `lambda_KL = 5.0`, `lambda_CE = 1.0`, and `lambda_D = 1e-4`. The token-wise gate adds only a small stability package: a weak entropy term, a weak KL-to-static-prior term, and no temporal smoothness term in the confirmed final configuration. Stage C is intentionally not used in this paper.
+where `h^T` is the frozen large-model hidden state after the removed large block, `L_KL` is teacher-logit KL, and `L_CE` is shifted next-token cross-entropy. In the confirmed runs, `lambda_KL = 5.0`, `lambda_CE = 1.0`, and `lambda_D = 1e-4`. The token-wise gate adds only a small stability package: a weak entropy term, a weak KL-to-static-prior term, and no temporal smoothness term in the confirmed final configuration. Stage C is intentionally not used in this paper because the main bounded claim was already established before it, while broader generalization remained mixed and an additional distillation stage would have added capacity and confounds without answering a stronger question.
 
 ## Fairness And Parameter Budgets
 

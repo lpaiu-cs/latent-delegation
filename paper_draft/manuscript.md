@@ -26,7 +26,7 @@ Our work sits between positive results on representation transfer and negative r
 
 At the same time, recent negative results on cross-scale transfer motivate a conservative design and a strong control set. We therefore remain within one model family, keep all backbone weights frozen, and evaluate against learned bridge baselines that stay entirely in large hidden space. These controls matter because a positive result against weak baselines alone would not distinguish useful delegated computation from a better use of trainable capacity in the large model's own latent space.
 
-The same-family choice is grounded in Gemma-2 itself. Gemma-2 2B and 9B share the same family structure while still differing enough in scale to make cross-scale mismatch meaningful. For bounded external evaluation, we use standard log-likelihood-compatible benchmarks: HellaSwag (Zellers et al., 2019), PIQA (Bisk et al., 2020), WinoGrande (Sakaguchi et al., 2020), ARC-Easy and ARC-Challenge (Clark et al., 2018), and LAMBADA (Paperno et al., 2016). A formatted bibliography is included below and mirrored in [notes/paper/references.md](</E:/lab/latent-delegation/notes/paper/references.md>).
+The same-family choice is grounded in Gemma-2 itself. Gemma-2 2B and 9B share the same family structure while still differing enough in scale to make cross-scale mismatch meaningful. For bounded external evaluation, we use standard log-likelihood-compatible benchmarks: HellaSwag (Zellers et al., 2019), PIQA (Bisk et al., 2020), WinoGrande (Sakaguchi et al., 2020), ARC-Easy and ARC-Challenge (Clark et al., 2018), and LAMBADA (Paperno et al., 2016).
 
 ## 3. Setup And Problem Statement
 
@@ -44,7 +44,7 @@ Let `h_t^L` denote the large-model hidden state at token position `t` after the 
 
 `Delta_{p,t} = R_p(S_p(E_p(N(h_t^L))))`.
 
-In the single-path case, the hybrid hidden state after the removed large block is
+For the single-path fixed-window hybrid, we write `Delta_t := Delta_{p,t}` for the active delegated path. The hybrid hidden state after the removed large block is then
 
 `h_t^H = h_t^L + Delta_t`,
 
@@ -119,6 +119,15 @@ A real-model local window search shows that the original fixed contiguous substi
 
 Here `24..27 -> 14..19` is slightly better on KL and top-5 overlap, whereas `24..27 -> 16..18` is slightly better on NLL, perplexity, and top-1 agreement. This result matters because it changes the structural prior before any mixture model is introduced.
 
+**Table 1. Structural progression from the fixed-window baseline to the final routing model.**
+
+| phase | compared model | holdout policy | seeds | KL | NLL | PPL |
+| --- | --- | --- | --- | --- | --- | --- |
+| fixed-window feasibility | output-aware fixed-window hybrid | development holdout | 42, 43, 44 | 0.655263 | 3.423486 | 30.723442 |
+| asymmetric shortlist | best single-path `24..27 -> 14..19` | Phase 1 confirmation probe | 42, 43, 44 | 0.281641 | 3.078029 | 21.780681 |
+| static mixture | two-path static mixture | development holdout | 42, 43, 44 | 0.267095 | 3.000438 | 20.156769 |
+| final model | token-wise two-path routing | development holdout | 42, 43, 44 | 0.255739 | 2.980182 | 19.763760 |
+
 ### 6.3 Static Two-Path Mixture Surpasses Bridge Baselines
 
 The static two-path mixture is the first model to beat both bridge controls on the primary output metrics. On the development holdout, it improves over both bridge baselines in KL and NLL, and the same pattern survives on the untouched confirmation holdout. This is the first clean bridge win in the project, which is why it matters more than a simple re-ranking among single-window candidates. The matched no-small mixture also improves over the earlier no-small baselines, but the full static mixture remains stronger, indicating that the gain cannot be reduced to route mixing alone.
@@ -145,6 +154,16 @@ The bridge comparison is clean: on both the development holdout and the untouche
 
 The gate diagnostics are consistent with real routing rather than trivial collapse. The gate favors path A on average, retains substantial mass on path B, and remains far from full collapse. The matched no-small control uses the same gate family but is sharper, more collapsed, and materially weaker, which argues against a pure route-capacity explanation.
 
+**Table 2. Final internal comparison on the development and untouched confirmation holdouts.**
+
+| model | development KL | development NLL | confirmation KL | confirmation NLL |
+| --- | --- | --- | --- | --- |
+| token-wise two-path routing | 0.255739 | 2.980182 | 0.248886 | 3.185004 |
+| token-wise no-small control | 0.257501 | 3.038605 | 0.251294 | 3.261786 |
+| static two-path mixture | 0.267095 | 3.000438 | 0.267244 | 3.213048 |
+| `bridge_only` | 0.288448 | 3.072051 | 0.289564 | 3.295081 |
+| parameter-matched bridge | 0.302323 | 3.102081 | 0.301746 | 3.327024 |
+
 ### 6.5 Explanatory Follow-Ups
 
 The explanatory follow-ups strengthen interpretation rather than replacing the final model. Monotone-corridor analysis recovers a broader low-cost asymmetric region around the successful two-path shortlist, suggesting that the final model exploits a local alignment corridor rather than a lucky hard window. Sublayer attribution shows that both delegated attention and delegated MLP matter. Suppressing MLP hurts more, but suppressing attention is also materially harmful, so the gain is not well explained by a single-component simplification.
@@ -153,13 +172,24 @@ The explanatory follow-ups strengthen interpretation rather than replacing the f
 
 Bounded external generalization is real but mixed. The cleanest external strength remains on LM-style scoring: on the held-out LAMBADA slice, the token-wise model is favorable against both bridge baselines in KL and favorable against the parameter-matched bridge in NLL, while the NLL comparison against `bridge_only` is positive by point estimate but not cleanly separated under paired uncertainty. The multiple-choice picture is weaker and should be stated that way. HellaSwag and ARC-Challenge are positive by point estimate, but their paired intervals cross zero; WinoGrande is mixed; and PIQA and ARC-Easy are negative relative to the bridge baselines. The strongest defensible external-validity claim is therefore that the final model is not just a single-slice artifact and retains a real LM-style held-out advantage, not that it broadly dominates strong bridge baselines across downstream tasks.
 
-## 7. Reproducibility
+**Table 3. Bounded external generalization summary.**
 
-All canonical tables, figure specifications, sample IDs, and reproducibility manifests are generated directly from frozen artifacts. The public release includes machine-readable result tables, figure-ready summaries, exact benchmark slice definitions and seeds, and a reproducibility manifest with artifact roots and commit-level provenance. Version labels such as `v0.6.0`, `v0_7`, `v0_8`, and `v0_9` are retained in the release package only to identify frozen artifact families; the main text refers to experimental phases and model families rather than repository branch history.
+| task | metric | token-wise | static mixture | `bridge_only` | parameter-matched bridge | reading |
+| --- | --- | --- | --- | --- | --- | --- |
+| HellaSwag | accuracy | 0.671875 | 0.671875 | 0.656250 | 0.656250 | positive by point estimate; paired CI crosses zero |
+| PIQA | accuracy | 0.723958 | 0.723958 | 0.734375 | 0.744792 | negative versus bridge baselines |
+| WinoGrande | accuracy | 0.645833 | 0.656250 | 0.635417 | 0.656250 | mixed |
+| ARC-Easy | accuracy | 0.791667 | 0.796875 | 0.828125 | 0.828125 | negative versus bridge baselines |
+| ARC-Challenge | accuracy | 0.442708 | 0.427083 | 0.432292 | 0.437500 | positive by point estimate; paired CI crosses zero |
+| LAMBADA | KL / NLL | 0.251354 / 3.423984 | 0.258699 / 3.419273 | 0.254975 / 3.433371 | 0.266066 / 3.446407 | cleanest external LM-style signal |
+
+## 7. Reproducibility Statement
+
+We release exact benchmark slice definitions, saved sample IDs, fixed seeds, canonical result tables, figure specifications, and a reproducibility manifest generated directly from frozen artifacts. Supplementary materials record commit provenance, artifact roots, and the Windows-native commands needed to rerun the reported evaluations.
 
 ## 8. Limitations
 
-This paper reports a bounded systems-and-mechanism result, not a broad benchmark result. The strongest evidence is confined to one same-family pair, Gemma-2 9B and 2B, under a frozen-backbone single-GPU regime. The strongest external carryover remains on LM-style scoring, while broader multiple-choice generalization is mixed rather than broad. The no-small comparison is also slightly weaker on the untouched confirmation holdout than the bridge comparison. Stage C is intentionally not used, and the paper does not establish cross-family robustness, broad downstream superiority, or a universal delegation principle. These limitations are part of the claim boundary, not footnotes to it.
+This paper reports a bounded systems-and-mechanism result, not a broad benchmark result. The strongest evidence is confined to one same-family pair, Gemma-2 9B and 2B, under a frozen-backbone single-GPU regime. The strongest external carryover remains on LM-style scoring, while broader multiple-choice generalization is mixed rather than broad. The no-small comparison is also slightly weaker on the untouched confirmation holdout than the bridge comparison. Stage C is intentionally not used because the main bounded claim was already established before it, while broader generalization remained mixed and an additional distillation stage would have added capacity and confounds without answering a stronger question. The paper does not establish cross-family robustness, broad downstream superiority, or a universal delegation principle. These limitations are part of the claim boundary, not footnotes to it.
 
 ## 9. Conclusion
 
@@ -181,4 +211,4 @@ The resulting token-wise two-path model beats both strong bridge controls on a d
 
 ## Appendix A
 
-Appendix A lists the paper-facing source files, canonical tables, figure specifications, bibliography, and reproducibility manifest included in the public release. In the final camera-ready version, each item should be linked either to an appendix section, a supplementary PDF bundle, or the public repository release page.
+Appendix A lists the supplementary paper-facing source files, canonical tables, figure specifications, bibliography, and reproducibility materials used to produce the manuscript. In the final camera-ready version, each item should be linked either to an appendix section or to a supplementary release bundle.
