@@ -15,3 +15,5 @@ Primary ranking is output-first: teacher KL, then NLL, then perplexity, then top
 ## Bounded Generalization
 
 For bounded external generalization, we evaluate the frozen final model and key controls on HellaSwag, PIQA, WinoGrande, ARC-Easy, ARC-Challenge, and a held-out LAMBADA slice. Multiple-choice tasks are scored by normalized conditional answer log-likelihood; the LM-style slice is scored by KL, NLL, and perplexity. Uncertainty is reported with paired bootstrap estimates against the main internal baselines.
+
+All six external tasks use deterministic bounded subsets rather than full benchmark sweeps. HellaSwag, PIQA, WinoGrande, ARC-Easy, ARC-Challenge, and LAMBADA each use `64` examples, with fixed sampling seeds `9001`, `9002`, `9003`, `9004`, `9005`, and `9010` respectively; exact sample IDs are saved in the supplementary materials.

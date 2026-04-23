@@ -4,9 +4,9 @@
 
 We study a bounded same-family latent delegation setting in which a frozen large language model keeps ownership of the master residual stream and final logits while replacing part of its middle computation with delegated computation from a frozen smaller model plus learned interface modules. We instantiate this setting with Gemma-2 9B and Gemma-2 2B under a single RTX 5090-class GPU budget and frozen backbones throughout.
 
-A fixed contiguous delegation baseline provides only a qualified feasibility result: it improves over skip-only and no-small controls, but not over strong learned bridge baselines that remain entirely in large hidden space. A local asymmetric window search then rejects the fixed contiguous prior and yields a stable two-window shortlist. A static two-path mixture over that shortlist is the first model to beat both bridge controls on teacher KL and held-out NLL, and a low-capacity token-wise router over the same two paths improves further.
+A fixed contiguous delegation baseline provides only a qualified feasibility result: it improves over skip-only and no-small controls, but not over strong learned bridge baselines that remain entirely in large hidden space. A local asymmetric window search then rejects the fixed contiguous prior and yields a stable two-window shortlist. A static two-path mixture over that shortlist is the first model to beat both bridge controls on the primary internal LM-style output metrics, specifically teacher KL and held-out NLL, and a low-capacity token-wise router over the same two paths improves further.
 
-The final token-wise model beats both bridge controls on a development holdout and again on an untouched confirmation holdout. Follow-up monotone-corridor and sublayer-attribution analyses strengthen the explanation of why the model works but do not produce a better model. A bounded external generalization suite shows real but mixed external validity: the cleanest carryover remains on held-out LM-style scoring, while multiple-choice gains are selective rather than broad. The strongest defensible claim is therefore a bounded same-family positive result with mixed external generalization, not a broad downstream-superiority claim.
+The final token-wise model beats both bridge controls on the primary internal LM-style output metrics on a development holdout and again on an untouched confirmation holdout. Follow-up monotone-corridor and sublayer-attribution analyses strengthen the explanation of why the model works but do not produce a better model. A bounded external generalization suite shows real but mixed external validity: the cleanest carryover remains on held-out LM-style scoring, while multiple-choice gains are selective rather than broad. The strongest defensible claim is therefore a bounded same-family positive result with mixed external generalization, not a broad downstream-superiority claim.
 
 ## 1. Introduction
 
@@ -102,7 +102,7 @@ Primary ranking is output-first: teacher KL, then NLL, then perplexity, then top
 
 ### 5.4 Bounded Generalization
 
-For bounded external generalization, we evaluate the frozen final model and key controls on HellaSwag, PIQA, WinoGrande, ARC-Easy, ARC-Challenge, and a held-out LAMBADA slice. Multiple-choice tasks are scored by normalized conditional answer log-likelihood; the LM-style slice is scored by KL, NLL, and perplexity. Uncertainty is reported with paired bootstrap estimates against the main internal baselines.
+For bounded external generalization, we evaluate the frozen final model and key controls on HellaSwag, PIQA, WinoGrande, ARC-Easy, ARC-Challenge, and a held-out LAMBADA slice. Multiple-choice tasks are scored by normalized conditional answer log-likelihood; the LM-style slice is scored by KL, NLL, and perplexity. Uncertainty is reported with paired bootstrap estimates against the main internal baselines. All six external tasks use deterministic bounded subsets rather than full benchmark sweeps. HellaSwag, PIQA, WinoGrande, ARC-Easy, ARC-Challenge, and LAMBADA each use `64` examples, with fixed sampling seeds `9001`, `9002`, `9003`, `9004`, `9005`, and `9010` respectively; exact sample IDs are saved in the supplementary materials.
 
 ## 6. Results
 
@@ -115,6 +115,8 @@ The fixed-window hybrid establishes feasibility but not the final claim. In its 
 A real-model local window search shows that the original fixed contiguous substitution is the wrong structural prior. The legacy `24..29 -> 14..19` candidate is substantially worse than the two candidates that later become the shortlist. After confirmation, the shortlist remains near-tied: `24..27 -> 14..19` reaches KL/NLL `0.281641 / 3.078029`, whereas `24..27 -> 16..18` reaches `0.282215 / 3.074461`. The first is slightly better on KL and top-5 overlap; the second is slightly better on NLL, perplexity, and top-1 agreement. Table 1 summarizes how that shortlist then leads to the final routing result.
 
 **Table 1. Structural progression from the fixed-window baseline to the final routing model.**
+
+These rows come from different evaluation stages and holdout policies. The table summarizes the structural progression of the project; it is not a single directly comparable leaderboard.
 
 | phase | compared model | holdout policy | seeds | KL | NLL | PPL |
 | --- | --- | --- | --- | --- | --- | --- |
@@ -155,6 +157,8 @@ Bounded external generalization is real but mixed. The cleanest external strengt
 
 **Table 3. Bounded external generalization summary.**
 
+All rows use deterministic bounded `64`-example subsets. Positive multiple-choice rows should be read as point-estimate wins only unless paired bootstrap intervals are clearly separated; where noted in the text, some paired intervals still cross zero.
+
 | task | metric | token-wise | static mixture | `bridge_only` | parameter-matched bridge | reading |
 | --- | --- | --- | --- | --- | --- | --- |
 | HellaSwag | accuracy | 0.671875 | 0.671875 | 0.656250 | 0.656250 | positive by point estimate; paired CI crosses zero |
@@ -176,19 +180,19 @@ This paper reports a bounded systems-and-mechanism result, not a broad benchmark
 
 The strongest result in this paper is a bounded positive one. Same-family latent delegation does not work here because a fixed hard layer match happens to be adequate. It works only after the fixed contiguous substitution is rejected, a local asymmetric shortlist is identified, and delegated computation is reformulated as a low-capacity two-path routing problem.
 
-The resulting token-wise two-path model beats both strong bridge controls on a development holdout and again on an untouched confirmation holdout in the frozen Gemma-2 9B -> 2B setting. This is stronger than the earlier fixed-window feasibility result and is the correct main claim of the paper. At the same time, the paper remains deliberately narrow. The explanatory follow-up branches clarify why the model works but do not replace it, and the bounded external suite shows mixed rather than broad generalization. The right conclusion is therefore narrow and strong at once: one-way same-family latent delegation can surpass strong bridge baselines inside this frozen-backbone Gemma-2 setting, but the current evidence does not justify a broad downstream-superiority claim outside that regime.
+The resulting token-wise two-path model beats both strong bridge controls on the primary internal LM-style output metrics on a development holdout and again on an untouched confirmation holdout in the frozen Gemma-2 9B -> 2B setting. This is stronger than the earlier fixed-window feasibility result and is the correct main claim of the paper. At the same time, the paper remains deliberately narrow. The explanatory follow-up branches clarify why the model works but do not replace it, and the bounded external suite shows mixed rather than broad generalization. The right conclusion is therefore narrow and strong at once: one-way same-family latent delegation can surpass strong bridge baselines inside this frozen-backbone Gemma-2 setting, but the current evidence does not justify a broad downstream-superiority claim outside that regime.
 
 ## References
 
-- Bisk, Y., Zellers, R., Gao, J., Choi, Y. 2020. *PIQA: Reasoning about Physical Commonsense in Natural Language*. AAAI.
-- Clark, P., Cowhey, I., Etzioni, O., et al. 2018. *Think You Have Solved Question Answering? Try ARC, the AI2 Reasoning Challenge*. arXiv:1803.05457.
-- DeepMind. 2024. *Gemma 2 Technical Report*.
-- *Linear Representation Transferability Hypothesis*. 2025. arXiv:2506.00653.
-- *Model Stitching for Language Models*. 2025. arXiv:2506.06609.
-- *Neural Incompatibility*. 2025. arXiv:2505.14436.
-- Paperno, D., Kruszewski, G., Lazaridou, A., et al. 2016. *The LAMBADA Dataset: Word Prediction Requiring a Broad Discourse Context*. ACL.
-- Sakaguchi, K., Bras, R. L., Bhagavatula, C., Choi, Y. 2020. *WinoGrande: An Adversarial Winograd Schema Challenge at Scale*. AAAI.
-- Zellers, R., Bisk, Y., Schwartz, R., Choi, Y. 2019. *HellaSwag: Can a Machine Really Finish Your Sentence?* ACL.
+- Bello, F., Das, A., Zeng, F., Yin, F., and Leqi, L. 2025. *Linear Representation Transferability Hypothesis: Leveraging Small Models to Steer Large Models*. arXiv preprint arXiv:2506.00653.
+- Bisk, Y., Zellers, R., Gao, J., and Choi, Y. 2020. *PIQA: Reasoning about Physical Commonsense in Natural Language*. Proceedings of AAAI.
+- Chen, A., Merullo, J., Stolfo, A., and Pavlick, E. 2025. *Transferring Linear Features Across Language Models With Model Stitching*. arXiv preprint arXiv:2506.06609.
+- Clark, P., Cowhey, I., Etzioni, O., Khot, T., Sabharwal, A., Schoenick, C., and Tafjord, O. 2018. *Think You Have Solved Question Answering? Try ARC, the AI2 Reasoning Challenge*. arXiv preprint arXiv:1803.05457.
+- Gemma Team. 2024. *Gemma 2 Technical Report*. Technical report.
+- Paperno, D., Kruszewski, G., Lazaridou, A., et al. 2016. *The LAMBADA Dataset: Word Prediction Requiring a Broad Discourse Context*. Proceedings of ACL.
+- Sakaguchi, K., Bras, R. L., Bhagavatula, C., and Choi, Y. 2020. *WinoGrande: An Adversarial Winograd Schema Challenge at Scale*. Proceedings of AAAI.
+- Tan, Y., He, S., Liu, K., and Zhao, J. 2025. *Neural Incompatibility: The Unbridgeable Gap of Cross-Scale Parametric Knowledge Transfer in Large Language Models*. Proceedings of ACL 2025.
+- Zellers, R., Bisk, Y., Schwartz, R., and Choi, Y. 2019. *HellaSwag: Can a Machine Really Finish Your Sentence?* Proceedings of ACL.
 
 ## Appendix A
 

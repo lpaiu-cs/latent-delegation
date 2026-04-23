@@ -1,0 +1,38 @@
+\section{Supplementary Protocol Details}
+
+\subsection{Bounded Generalization Subset Policy}
+
+Table~\ref{tab:subset-policy} makes the bounded external-evaluation policy explicit. None of these tasks uses a full benchmark sweep in the current paper. Every task uses a deterministic fixed-size subset with saved sample identifiers.
+
+\begin{table}[h]
+\centering
+\caption{Deterministic subset policy for the bounded external generalization suite.}
+\label{tab:subset-policy}
+\small
+\begin{tabular}{>{\raggedright\arraybackslash}p{0.22\linewidth} >{\raggedright\arraybackslash}p{0.18\linewidth} >{\raggedright\arraybackslash}p{0.14\linewidth} >{\centering\arraybackslash}p{0.12\linewidth} >{\centering\arraybackslash}p{0.12\linewidth}}
+\toprule
+Task & Split & Evaluation type & Sample count & Seed \\
+\midrule
+HellaSwag & Validation & Multiple choice & 64 & 9001 \\
+PIQA & Validation & Multiple choice & 64 & 9002 \\
+WinoGrande & Validation & Multiple choice & 64 & 9003 \\
+ARC-Easy & Validation & Multiple choice & 64 & 9004 \\
+ARC-Challenge & Validation & Multiple choice & 64 & 9005 \\
+LAMBADA & Test & LM-style scoring & 64 & 9010 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Supplementary Release Contents}
+
+The supplementary release accompanies this manuscript with:
+\begin{itemize}[leftmargin=1.5em]
+\item canonical paper tables generated from frozen artifacts;
+\item figure specifications and machine-readable summaries;
+\item exact sample-ID files and slice definitions for the internal holdouts and bounded generalization suite;
+\item a reproducibility manifest with commit provenance, artifact roots, environment metadata, and Windows-native rerun commands.
+\end{itemize}
+
+\subsection{Claim Boundary Reminder}
+
+The supported claim remains bounded. The strongest evidence is internal to the frozen Gemma-2 9B $\rightarrow$ 2B setting and is anchored on LM-style output metrics. Broader multiple-choice generalization remains mixed, and Stage C is intentionally excluded from the present paper.

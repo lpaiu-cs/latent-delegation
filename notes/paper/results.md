@@ -10,6 +10,8 @@ A real-model local window search shows that the original fixed contiguous substi
 
 **Table 1. Structural progression from the fixed-window baseline to the final routing model.**
 
+These rows come from different evaluation stages and holdout policies. The table summarizes the structural progression of the project; it is not a single directly comparable leaderboard.
+
 | phase | compared model | holdout policy | seeds | KL | NLL | PPL |
 | --- | --- | --- | --- | --- | --- | --- |
 | fixed-window feasibility | output-aware fixed-window hybrid | development holdout | 42, 43, 44 | 0.655263 | 3.423486 | 30.723442 |
@@ -48,6 +50,8 @@ The explanatory follow-ups strengthen interpretation rather than replacing the f
 Bounded external generalization is real but mixed. The cleanest external strength remains on LM-style scoring: on the held-out LAMBADA slice, the token-wise model is favorable against both bridge baselines in KL and favorable against the parameter-matched bridge in NLL, while the NLL comparison against `bridge_only` is positive by point estimate but not cleanly separated under paired uncertainty. The multiple-choice picture is weaker and should be stated that way. HellaSwag and ARC-Challenge are positive by point estimate, but their paired intervals cross zero; WinoGrande is mixed; and PIQA and ARC-Easy are negative relative to the bridge baselines. The strongest defensible external-validity claim is therefore that the final model is not just a single-slice artifact and retains a real LM-style held-out advantage, not that it broadly dominates strong bridge baselines across downstream tasks.
 
 **Table 3. Bounded external generalization summary.**
+
+All rows use deterministic bounded `64`-example subsets. Positive multiple-choice rows should be read as point-estimate wins only unless paired bootstrap intervals are clearly separated; where noted in the text, some paired intervals still cross zero.
 
 | task | metric | token-wise | static mixture | `bridge_only` | parameter-matched bridge | reading |
 | --- | --- | --- | --- | --- | --- | --- |
