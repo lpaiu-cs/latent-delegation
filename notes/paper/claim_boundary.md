@@ -4,11 +4,10 @@
 
 - A same-family one-way latent delegation system between Gemma-2 9B and Gemma-2 2B is feasible on a single RTX 5090-class GPU with frozen backbones.
 - Delegated small-model computation improves over `skip_only` and no-small controls.
-- The frozen `v0.6.0` token-wise two-path hybrid beats both strong bridge controls on the repo’s main held-out LM-style probes.
-- That bridge win survives a fresh untouched holdout slice.
-- Bounded external generalization exists, with the clearest carryover on held-out LM-style evaluation.
-- Idea 5 discovery strengthens the interpretation that the successful windows sit inside a broader local monotone asymmetric corridor.
-- Idea 2 attribution shows that both delegated attention and delegated MLP matter, with larger degradation when MLP is suppressed.
+- The final two-path token-wise hybrid beats both strong bridge controls on the development holdout and on the untouched confirmation holdout.
+- The strongest external carryover appears on held-out LM-style evaluation.
+- Monotone-corridor analysis strengthens the interpretation that the successful shortlist lies in a broader local asymmetric alignment corridor.
+- Sublayer attribution shows that both delegated attention and delegated MLP matter, with larger degradation when MLP is suppressed.
 
 ## Unsupported Claims
 
@@ -16,22 +15,26 @@
 - The token-wise model generalizes cleanly across multiple-choice reasoning benchmarks.
 - The result is already robust across model families, scales, or tokenizer families.
 - Hidden-space improvements alone are sufficient evidence of output-level improvement.
-- The repo demonstrates full thought transfer, model equivalence, or a general-purpose delegation architecture.
+- The paper demonstrates full thought transfer, model equivalence, or a general-purpose delegation architecture.
 - Stage C is justified by the current evidence.
 
-## Exact Wording To Prefer In Abstract, Introduction, And Conclusion
+## Exact Wording To Prefer
 
 Preferred abstract wording:
 
-> We report a bounded positive result in the same-family Gemma-2 9B -> 2B setting: a frozen two-path token-wise delegated hybrid beats strong bridge controls on held-out LM-style probes, and that win survives a fresh untouched holdout slice.
+> We report a bounded positive result in the same-family Gemma-2 9B -> 2B setting: a two-path token-wise delegated hybrid beats strong bridge controls on held-out LM-style probes, and that win survives an untouched confirmation holdout.
 
 Preferred introduction wording:
 
 > The goal is not to claim thought transfer or broad downstream superiority, but to test whether delegated same-family latent computation can recover useful work under frozen-backbone, single-GPU constraints.
 
+Preferred evaluation wording:
+
+> The development holdout is the reused model-selection slice; the untouched confirmation holdout is the stricter external check and should be treated as the primary confirmation surface.
+
 Preferred results wording:
 
-> The continuation work shows that the original fixed contiguous substitution window was the wrong structural prior; once the delegated path is reformulated as a bounded two-path token-wise mixture, the hybrid becomes better than the bridge controls on the repo’s main held-out LM-style probes.
+> The fixed contiguous substitution is the wrong structural prior; once the delegated computation is reformulated as a bounded two-path routing problem, the hybrid becomes better than the bridge controls on the main LM-style probes.
 
 Preferred limitation wording:
 

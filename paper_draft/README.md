@@ -6,6 +6,7 @@ Current source bundle:
 
 - [abstract.md](</E:/lab/latent-delegation/notes/paper/abstract.md>)
 - [introduction.md](</E:/lab/latent-delegation/notes/paper/introduction.md>)
+- [related_work.md](</E:/lab/latent-delegation/notes/paper/related_work.md>)
 - [method.md](</E:/lab/latent-delegation/notes/paper/method.md>)
 - [experiments.md](</E:/lab/latent-delegation/notes/paper/experiments.md>)
 - [results.md](</E:/lab/latent-delegation/notes/paper/results.md>)

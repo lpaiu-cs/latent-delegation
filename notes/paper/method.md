@@ -2,67 +2,78 @@
 
 ## Base Framing
 
-The large model owns the input path, the master residual stream, the suffix, and the final logits. The small model owns delegated latent computation only. All backbone weights remain frozen. The only trainable modules are the interface pieces that map into and out of the delegated path plus a scalar or low-capacity routing mechanism.
+The large model owns the input path, the master residual stream, the suffix, and the final logits. The small model owns delegated latent computation only. All backbone weights remain frozen. The trainable modules are limited to entry projectors, return adapters, and a low-capacity routing mechanism.
 
-The original conservative split was:
-
-- large prefix: layers `0..23`
-- removed large middle block: layers `24..29`
-- large suffix: layers `30..41`
-- small reference hidden: after layer `13`
-- delegated small block: layers `14..19`
-
-The base hybrid forward path was:
-
-1. run the frozen large prefix
-2. project the large hidden state into small latent space
-3. run a frozen delegated small window
-4. map the delegated result back to large space
-5. add the returned delta through a learned gate
-6. continue through the frozen large suffix and large LM head
-
-## Training Stages
-
-Stage A trained the entry projector to align the large hidden after layer 23 with the small-family latent state before small layer 14, using hidden-state MSE and cosine losses.
-
-Stage B first existed in a hidden-only form, where the delegated return path was trained to recover the large teacher hidden after the removed middle block. That version improved hidden recovery but did not translate into output-level wins over the strongest controls.
-
-Stage B was then upgraded to an output-aware objective. It retained hidden-state alignment terms but also added teacher-logit KL and next-token cross-entropy. This was the last architecture inside the `v0.5.x` line.
-
-Stage C was intentionally not started. The repo’s own gating rule required the delegated hybrid to first beat or at least match the stronger bridge controls on lightweight output metrics.
-
-## Continuation to v0.6.0
-
-The continuation branch asked whether the fixed contiguous substitution window was the wrong structural prior. Phase 1 held the architecture family fixed and searched conservatively over local asymmetric windows on the real Gemma path. The result was a stable shortlist:
+The original fixed-window baseline removes large layers `24..29` and replaces them with delegated small layers `14..19` entered from the hidden state after small layer `13`. The final successful model fixes the removed large window to `24..27` and uses two delegated paths:
 
 - path B: `24..27 -> 14..19`
 - path A: `24..27 -> 16..18`
 
-The resulting Idea 4 progression was intentionally minimal.
+## Notation And Forward Definitions
 
-### Static Mixture
+Let `h_t^L` denote the large-model hidden state at token position `t` after the frozen large prefix. Let `N(.)` denote RMSNorm, `E_p` the entry projector for path `p`, `S_p` the frozen delegated small-model window, and `R_p` the return adapter back into large hidden space.
 
-The first continuation model kept both shortlisted paths active in parallel and combined their returned large-space deltas with a learnable global 2-logit softmax:
+For each delegated path `p in {A, B}`, the path delta is:
 
-`delta_mix = w[0] * delta_B + w[1] * delta_A`
+`Delta_{p,t} = R_p(S_p(E_p(N(h_t^L))))`
 
-This model used the same frozen backbones and the same output-aware Stage B family. A matched no-small control retained the same interface structure but removed actual delegated small-model computation.
+The hybrid hidden state after the removed large window is:
 
-### Token-Wise Mixture
+`h_t^H = h_t^L + Delta_t`
 
-The final `v0.6.0` model replaced the static global mixture with a low-capacity token-wise gate. The gate reads only the large-prefix hidden state at the splice boundary, applies normalization plus a small head to 2 logits, and outputs per-token softmax weights over the same two delegated paths. The gate is initialized from the learned static mixture prior. A matched token-wise no-small control uses the same gate family but removes delegated small-model computation.
+and the frozen large suffix then produces the final logits.
 
-## Controls
+## Static Two-Path Mixture
 
-The controls are central to the method, not optional bookkeeping:
+The static mixture keeps both delegated paths active and combines their returned deltas with a learnable global two-logit softmax:
 
-- `skip_only`: remove the target large block and continue directly to the suffix
-- `hybrid_no_small`: keep interface structure but remove delegated small-model computation
-- `bridge_only`: learn a bridge entirely in large space
-- `bridge_only_param_matched`: adjust bridge capacity to match the trainable budget of the delegated alternative as closely as practical
+`w = softmax(alpha)`
 
-This control stack is what lets the paper separate three questions:
+`Delta_t = w_B * Delta_{B,t} + w_A * Delta_{A,t}`
 
-1. does delegation beat skipping?
-2. does delegation beat a no-small interface-only route?
-3. does delegation beat a strong large-space bridge under a matched or near-matched trainable budget?
+The matched no-small control keeps the same entry projectors, return adapters, and global mixture weights, but removes the actual delegated small-model computation.
+
+## Token-Wise Two-Path Routing
+
+The final model replaces the global mixture with a low-capacity per-token gate. The gate input is only the large-prefix hidden state at the splice boundary. In the final confirmed model, the gate is a direct linear head over RMS-normalized prefix states, because the configured gate hidden size is `0`:
+
+`g_t = softmax(W_g N(h_t^L) + b_g)`
+
+`Delta_t = g_{t,B} * Delta_{B,t} + g_{t,A} * Delta_{A,t}`
+
+The gate bias is initialized from the learned static-mixture prior. The token-wise no-small control uses the same gate family and interface routes but removes delegated small-model computation.
+
+## Training Objectives
+
+Stage A trains only the entry projector. Its exact objective in code is:
+
+`L_A = MSE(E(h^L), h^S_ref) + CosineLoss(E(h^L), h^S_ref)`
+
+where `h^S_ref` is the frozen small-model reference hidden state before the delegated small block.
+
+The decisive training regime is output-aware Stage B. Its implemented objective is:
+
+`L_B = MSE(h^H, h^T) + CosineLoss(h^H, h^T) + 5.0 * L_KL + 1.0 * L_CE + 1e-4 * ||Delta||_2^2`
+
+Here `h^T` is the frozen large-model hidden state after the removed large block, `L_KL` is the teacher-logit KL term, and `L_CE` is shifted next-token cross-entropy. The token-wise gate adds a small prior/stability package:
+
+- entropy penalty weight: `1e-4`
+- KL-to-static-prior weight: `1e-3`
+- smoothness penalty weight: `0.0`
+
+Stage C is not used in this paper.
+
+## Fairness And Parameter Budgets
+
+The paper keeps parameter matching explicit because the routing models add capacity beyond a plain bridge:
+
+| model | trainable parameters |
+| --- | ---: |
+| static two-path mixture | `753666` |
+| static two-path mixture no-small | `753666` |
+| token-wise two-path routing | `764418` |
+| token-wise no-small | `764418` |
+| `bridge_only` | `458753` |
+| updated parameter-matched bridge | `766977` |
+
+The updated parameter-matched bridge uses rank `107`, which is the closest saved match to the token-wise routing budget.
