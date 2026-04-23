@@ -33,25 +33,25 @@ These are figure-ready specs, not new results. The specs live under `artifacts/p
 | static_mixture_main | softmix(path_b,path_a) | 3 | stage_b validation split reused for the matching seed | 0.267095 | 3.000438 |
 | tokenwise_main | tokenwise(path_b,path_a) | 3 | stage_b validation split reused for the matching seed | 0.255739 | 2.980182 |
 
-## Figure 3. Original vs Fresh Holdout KL/NLL
+## Figure 3. Development vs Untouched Confirmation Holdout KL/NLL
 
 - Spec-only figure. The same model set should be plotted on both holdouts.
-- The key reading is whether the token-wise bridge win survives the fresh untouched slice.
+- The key reading is whether the token-wise bridge win survives the untouched confirmation slice.
 - Spec file: `figure_03_original_vs_fresh_holdout.json`.
 - Source artifacts: `artifacts/v0_6/idea4_tokenwise/confirm/output_probe_main/results.json`, `artifacts/v0_6/idea4_tokenwise/confirm/output_probe_fresh_holdout/results.json`, `artifacts/v0_6/idea4_static_mixture/confirm/output_probe/results.json`, `artifacts/v0_6/idea4_static_mixture/fresh_holdout_probe/results.json`.
 
 | holdout_name | model_name | seed_count | logit_kl_to_teacher_mean | nll_mean |
 | --- | --- | --- | --- | --- |
-| original_main | tokenwise_mixture | 3 | 0.255739 | 2.980182 |
-| original_main | static_mixture | 3 | 0.267095 | 3.000438 |
-| original_main | tokenwise_mixture_no_small | 3 | 0.257501 | 3.038605 |
-| original_main | bridge_only | 3 | 0.288448 | 3.072051 |
-| original_main | bridge_only_param_matched | 3 | 0.302323 | 3.102081 |
-| fresh_untouched | tokenwise_mixture | 3 | 0.248886 | 3.185004 |
-| fresh_untouched | static_mixture | 3 | 0.267244 | 3.213048 |
-| fresh_untouched | tokenwise_mixture_no_small | 3 | 0.251294 | 3.261786 |
-| fresh_untouched | bridge_only | 3 | 0.289564 | 3.295081 |
-| fresh_untouched | bridge_only_param_matched | 3 | 0.301746 | 3.327024 |
+| development_holdout | tokenwise_mixture | 3 | 0.255739 | 2.980182 |
+| development_holdout | static_mixture | 3 | 0.267095 | 3.000438 |
+| development_holdout | tokenwise_mixture_no_small | 3 | 0.257501 | 3.038605 |
+| development_holdout | bridge_only | 3 | 0.288448 | 3.072051 |
+| development_holdout | bridge_only_param_matched | 3 | 0.302323 | 3.102081 |
+| untouched_confirmation_holdout | tokenwise_mixture | 3 | 0.248886 | 3.185004 |
+| untouched_confirmation_holdout | static_mixture | 3 | 0.267244 | 3.213048 |
+| untouched_confirmation_holdout | tokenwise_mixture_no_small | 3 | 0.251294 | 3.261786 |
+| untouched_confirmation_holdout | bridge_only | 3 | 0.289564 | 3.295081 |
+| untouched_confirmation_holdout | bridge_only_param_matched | 3 | 0.301746 | 3.327024 |
 
 ## Figure 4. Idea 5 Corridor Visualization Summary
 
@@ -77,12 +77,12 @@ These are figure-ready specs, not new results. The specs live under `artifacts/p
 
 | holdout_name | variant_name | logit_kl_to_teacher_delta | nll_delta |
 | --- | --- | --- | --- |
-| fresh_untouched | tokenwise_attn_suppressed | 0.109496 | 0.224608 |
-| fresh_untouched | tokenwise_mlp_suppressed | 0.182872 | 0.37961 |
-| fresh_untouched | tokenwise_both_suppressed | 0.154198 | 0.379402 |
-| main_validation | tokenwise_attn_suppressed | 0.103797 | 0.21867 |
-| main_validation | tokenwise_mlp_suppressed | 0.182743 | 0.350897 |
-| main_validation | tokenwise_both_suppressed | 0.147248 | 0.332872 |
+| untouched_confirmation_holdout | tokenwise_attn_suppressed | 0.109496 | 0.224608 |
+| untouched_confirmation_holdout | tokenwise_mlp_suppressed | 0.182872 | 0.37961 |
+| untouched_confirmation_holdout | tokenwise_both_suppressed | 0.154198 | 0.379402 |
+| development_holdout | tokenwise_attn_suppressed | 0.103797 | 0.21867 |
+| development_holdout | tokenwise_mlp_suppressed | 0.182743 | 0.350897 |
+| development_holdout | tokenwise_both_suppressed | 0.147248 | 0.332872 |
 
 ## Figure 6. Generalization Summary Across Benchmarks
 

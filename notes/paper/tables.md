@@ -67,7 +67,7 @@ These tables are generated directly from frozen artifacts. CSV and JSON copies l
 | confirmation | candidate_b_confirm | 24..27 -> 14..19 | 3 | phase1_real_confirmation_output_probe | 0.281641 | 3.078029 | 21.780681 | 0.755546 | 0.740074 | -0.017463 | -0.057073 | -0.000492 | 0.017439 | True | True |
 | confirmation | candidate_a_confirm | 24..27 -> 16..18 | 3 | phase1_real_confirmation_output_probe | 0.282215 | 3.074461 | 21.700679 | 0.756979 | 0.739941 | -0.018538 | -0.069355 | 0.000773 | 0.013718 | True | True |
 
-## Table 4. Static Mixture Summary
+## Table 4. Static Mixture Summary on Development and Untouched Confirmation Holdouts
 
 - The fresh-holdout recheck is included because it was the required rigor step before token-wise gating.
 - This table keeps the static-mixture main and fresh holdouts together so the bridge win can be read in one place.
@@ -76,24 +76,24 @@ These tables are generated directly from frozen artifacts. CSV and JSON copies l
 
 | phase_name | holdout_policy | seed_count | compared_model | hidden_mse_mean | hidden_cosine_mean | logit_kl_to_teacher_mean | nll_mean | perplexity_mean | top1_agreement_mean | top5_overlap_mean | source_path |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| static_mixture_confirmation_main | stage_b validation split reused for the matching seed | 3 | bridge_only |  |  | 0.288448 | 3.072051 | 21.673345 | 0.755489 | 0.737227 | artifacts/v0_6/idea4_static_mixture/confirm/output_probe/results.json |
-| static_mixture_confirmation_main | stage_b validation split reused for the matching seed | 3 | bridge_only_param_matched |  |  | 0.283258 | 3.045527 | 21.102889 | 0.755978 | 0.738655 | artifacts/v0_6/idea4_static_mixture/confirm/output_probe/results.json |
-| static_mixture_confirmation_main | stage_b validation split reused for the matching seed | 3 | full_large |  |  | 0 | 2.949112 | 19.19113 | 1 | 1 | artifacts/v0_6/idea4_static_mixture/confirm/output_probe/results.json |
-| static_mixture_confirmation_main | stage_b validation split reused for the matching seed | 3 | single_path_a |  |  | 0.282215 | 3.074461 | 21.700679 | 0.756979 | 0.739941 | artifacts/v0_6/idea4_static_mixture/confirm/output_probe/results.json |
-| static_mixture_confirmation_main | stage_b validation split reused for the matching seed | 3 | single_path_b |  |  | 0.281641 | 3.078029 | 21.780681 | 0.755546 | 0.740074 | artifacts/v0_6/idea4_static_mixture/confirm/output_probe/results.json |
-| static_mixture_confirmation_main | stage_b validation split reused for the matching seed | 3 | skip_only |  |  | 0.455535 | 3.380945 | 29.51741 | 0.698153 | 0.696677 | artifacts/v0_6/idea4_static_mixture/confirm/output_probe/results.json |
-| static_mixture_confirmation_main | stage_b validation split reused for the matching seed | 3 | static_mixture |  |  | 0.267095 | 3.000438 | 20.156769 | 0.762009 | 0.741646 | artifacts/v0_6/idea4_static_mixture/confirm/output_probe/results.json |
-| static_mixture_confirmation_main | stage_b validation split reused for the matching seed | 3 | static_mixture_no_small |  |  | 0.269326 | 3.06899 | 21.597682 | 0.760718 | 0.743137 | artifacts/v0_6/idea4_static_mixture/confirm/output_probe/results.json |
-| static_mixture_fresh_holdout_recheck | fresh untouched wikitext test slice shared across seeds | 3 | bridge_only |  |  | 0.289564 | 3.295081 | 26.979976 | 0.745563 | 0.73838 | artifacts/v0_6/idea4_static_mixture/fresh_holdout_probe/results.json |
-| static_mixture_fresh_holdout_recheck | fresh untouched wikitext test slice shared across seeds | 3 | bridge_only_param_matched |  |  | 0.284433 | 3.262601 | 26.117707 | 0.749861 | 0.739795 | artifacts/v0_6/idea4_static_mixture/fresh_holdout_probe/results.json |
-| static_mixture_fresh_holdout_recheck | fresh untouched wikitext test slice shared across seeds | 3 | full_large |  |  | 0 | 3.235025 | 25.407006 | 1 | 1 | artifacts/v0_6/idea4_static_mixture/fresh_holdout_probe/results.json |
-| static_mixture_fresh_holdout_recheck | fresh untouched wikitext test slice shared across seeds | 3 | single_path_a |  |  | 0.285229 | 3.306798 | 27.299031 | 0.74584 | 0.74193 | artifacts/v0_6/idea4_static_mixture/fresh_holdout_probe/results.json |
-| static_mixture_fresh_holdout_recheck | fresh untouched wikitext test slice shared across seeds | 3 | single_path_b |  |  | 0.283206 | 3.307474 | 27.317435 | 0.750277 | 0.742568 | artifacts/v0_6/idea4_static_mixture/fresh_holdout_probe/results.json |
-| static_mixture_fresh_holdout_recheck | fresh untouched wikitext test slice shared across seeds | 3 | skip_only |  |  | 0.45204 | 3.636127 | 37.944603 | 0.700915 | 0.699667 | artifacts/v0_6/idea4_static_mixture/fresh_holdout_probe/results.json |
-| static_mixture_fresh_holdout_recheck | fresh untouched wikitext test slice shared across seeds | 3 | static_mixture |  |  | 0.267244 | 3.213048 | 24.854807 | 0.753466 | 0.740155 | artifacts/v0_6/idea4_static_mixture/fresh_holdout_probe/results.json |
-| static_mixture_fresh_holdout_recheck | fresh untouched wikitext test slice shared across seeds | 3 | static_mixture_no_small |  |  | 0.267322 | 3.296346 | 27.014454 | 0.749029 | 0.745535 | artifacts/v0_6/idea4_static_mixture/fresh_holdout_probe/results.json |
+| static_mixture_confirmation_main | development holdout (reused during model selection) | 3 | bridge_only |  |  | 0.288448 | 3.072051 | 21.673345 | 0.755489 | 0.737227 | artifacts/v0_6/idea4_static_mixture/confirm/output_probe/results.json |
+| static_mixture_confirmation_main | development holdout (reused during model selection) | 3 | bridge_only_param_matched |  |  | 0.283258 | 3.045527 | 21.102889 | 0.755978 | 0.738655 | artifacts/v0_6/idea4_static_mixture/confirm/output_probe/results.json |
+| static_mixture_confirmation_main | development holdout (reused during model selection) | 3 | full_large |  |  | 0 | 2.949112 | 19.19113 | 1 | 1 | artifacts/v0_6/idea4_static_mixture/confirm/output_probe/results.json |
+| static_mixture_confirmation_main | development holdout (reused during model selection) | 3 | single_path_a |  |  | 0.282215 | 3.074461 | 21.700679 | 0.756979 | 0.739941 | artifacts/v0_6/idea4_static_mixture/confirm/output_probe/results.json |
+| static_mixture_confirmation_main | development holdout (reused during model selection) | 3 | single_path_b |  |  | 0.281641 | 3.078029 | 21.780681 | 0.755546 | 0.740074 | artifacts/v0_6/idea4_static_mixture/confirm/output_probe/results.json |
+| static_mixture_confirmation_main | development holdout (reused during model selection) | 3 | skip_only |  |  | 0.455535 | 3.380945 | 29.51741 | 0.698153 | 0.696677 | artifacts/v0_6/idea4_static_mixture/confirm/output_probe/results.json |
+| static_mixture_confirmation_main | development holdout (reused during model selection) | 3 | static_mixture |  |  | 0.267095 | 3.000438 | 20.156769 | 0.762009 | 0.741646 | artifacts/v0_6/idea4_static_mixture/confirm/output_probe/results.json |
+| static_mixture_confirmation_main | development holdout (reused during model selection) | 3 | static_mixture_no_small |  |  | 0.269326 | 3.06899 | 21.597682 | 0.760718 | 0.743137 | artifacts/v0_6/idea4_static_mixture/confirm/output_probe/results.json |
+| static_mixture_fresh_holdout_recheck | untouched confirmation holdout (fresh Wikitext test slice) | 3 | bridge_only |  |  | 0.289564 | 3.295081 | 26.979976 | 0.745563 | 0.73838 | artifacts/v0_6/idea4_static_mixture/fresh_holdout_probe/results.json |
+| static_mixture_fresh_holdout_recheck | untouched confirmation holdout (fresh Wikitext test slice) | 3 | bridge_only_param_matched |  |  | 0.284433 | 3.262601 | 26.117707 | 0.749861 | 0.739795 | artifacts/v0_6/idea4_static_mixture/fresh_holdout_probe/results.json |
+| static_mixture_fresh_holdout_recheck | untouched confirmation holdout (fresh Wikitext test slice) | 3 | full_large |  |  | 0 | 3.235025 | 25.407006 | 1 | 1 | artifacts/v0_6/idea4_static_mixture/fresh_holdout_probe/results.json |
+| static_mixture_fresh_holdout_recheck | untouched confirmation holdout (fresh Wikitext test slice) | 3 | single_path_a |  |  | 0.285229 | 3.306798 | 27.299031 | 0.74584 | 0.74193 | artifacts/v0_6/idea4_static_mixture/fresh_holdout_probe/results.json |
+| static_mixture_fresh_holdout_recheck | untouched confirmation holdout (fresh Wikitext test slice) | 3 | single_path_b |  |  | 0.283206 | 3.307474 | 27.317435 | 0.750277 | 0.742568 | artifacts/v0_6/idea4_static_mixture/fresh_holdout_probe/results.json |
+| static_mixture_fresh_holdout_recheck | untouched confirmation holdout (fresh Wikitext test slice) | 3 | skip_only |  |  | 0.45204 | 3.636127 | 37.944603 | 0.700915 | 0.699667 | artifacts/v0_6/idea4_static_mixture/fresh_holdout_probe/results.json |
+| static_mixture_fresh_holdout_recheck | untouched confirmation holdout (fresh Wikitext test slice) | 3 | static_mixture |  |  | 0.267244 | 3.213048 | 24.854807 | 0.753466 | 0.740155 | artifacts/v0_6/idea4_static_mixture/fresh_holdout_probe/results.json |
+| static_mixture_fresh_holdout_recheck | untouched confirmation holdout (fresh Wikitext test slice) | 3 | static_mixture_no_small |  |  | 0.267322 | 3.296346 | 27.014454 | 0.749029 | 0.745535 | artifacts/v0_6/idea4_static_mixture/fresh_holdout_probe/results.json |
 
-## Table 5. Token-Wise Summary on Original and Fresh Holdouts
+## Table 5. Token-Wise Summary on Development and Untouched Confirmation Holdouts
 
 - This is the canonical `v0.6.0` table.
 - The current best model/result claim remains tied to these token-wise rows, not to the later analysis branches.
@@ -102,22 +102,22 @@ These tables are generated directly from frozen artifacts. CSV and JSON copies l
 
 | phase_name | holdout_policy | seed_count | compared_model | hidden_mse_mean | hidden_cosine_mean | logit_kl_to_teacher_mean | nll_mean | perplexity_mean | top1_agreement_mean | top5_overlap_mean | source_path |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| tokenwise_confirmation_main | stage_b validation split reused for the matching seed | 3 | bridge_only |  |  | 0.288448 | 3.072051 | 21.673345 | 0.755489 | 0.737227 | artifacts/v0_6/idea4_tokenwise/confirm/output_probe_main/results.json |
-| tokenwise_confirmation_main | stage_b validation split reused for the matching seed | 3 | bridge_only_param_matched |  |  | 0.302323 | 3.102081 | 22.330668 | 0.75062 | 0.731407 | artifacts/v0_6/idea4_tokenwise/confirm/output_probe_main/results.json |
-| tokenwise_confirmation_main | stage_b validation split reused for the matching seed | 3 | full_large |  |  | 0 | 2.949112 | 19.19113 | 1 | 1 | artifacts/v0_6/idea4_tokenwise/confirm/output_probe_main/results.json |
-| tokenwise_confirmation_main | stage_b validation split reused for the matching seed | 3 | skip_only |  |  | 0.455535 | 3.380945 | 29.51741 | 0.698153 | 0.696677 | artifacts/v0_6/idea4_tokenwise/confirm/output_probe_main/results.json |
-| tokenwise_confirmation_main | stage_b validation split reused for the matching seed | 3 | static_mixture |  |  | 0.267095 | 3.000438 | 20.156769 | 0.762009 | 0.741646 | artifacts/v0_6/idea4_tokenwise/confirm/output_probe_main/results.json |
-| tokenwise_confirmation_main | stage_b validation split reused for the matching seed | 3 | static_mixture_no_small |  |  | 0.269326 | 3.06899 | 21.597682 | 0.760718 | 0.743137 | artifacts/v0_6/idea4_tokenwise/confirm/output_probe_main/results.json |
-| tokenwise_confirmation_main | stage_b validation split reused for the matching seed | 3 | tokenwise_mixture |  |  | 0.255739 | 2.980182 | 19.76376 | 0.763351 | 0.744268 | artifacts/v0_6/idea4_tokenwise/confirm/output_probe_main/results.json |
-| tokenwise_confirmation_main | stage_b validation split reused for the matching seed | 3 | tokenwise_mixture_no_small |  |  | 0.257501 | 3.038605 | 20.951639 | 0.762129 | 0.746334 | artifacts/v0_6/idea4_tokenwise/confirm/output_probe_main/results.json |
-| tokenwise_confirmation_fresh_holdout | fresh untouched wikitext test slice shared across seeds | 3 | bridge_only |  |  | 0.289564 | 3.295081 | 26.979976 | 0.745563 | 0.73838 | artifacts/v0_6/idea4_tokenwise/confirm/output_probe_fresh_holdout/results.json |
-| tokenwise_confirmation_fresh_holdout | fresh untouched wikitext test slice shared across seeds | 3 | bridge_only_param_matched |  |  | 0.301746 | 3.327024 | 27.855381 | 0.737105 | 0.734359 | artifacts/v0_6/idea4_tokenwise/confirm/output_probe_fresh_holdout/results.json |
-| tokenwise_confirmation_fresh_holdout | fresh untouched wikitext test slice shared across seeds | 3 | full_large |  |  | 0 | 3.235025 | 25.407006 | 1 | 1 | artifacts/v0_6/idea4_tokenwise/confirm/output_probe_fresh_holdout/results.json |
-| tokenwise_confirmation_fresh_holdout | fresh untouched wikitext test slice shared across seeds | 3 | skip_only |  |  | 0.45204 | 3.636127 | 37.944603 | 0.700915 | 0.699667 | artifacts/v0_6/idea4_tokenwise/confirm/output_probe_fresh_holdout/results.json |
-| tokenwise_confirmation_fresh_holdout | fresh untouched wikitext test slice shared across seeds | 3 | static_mixture |  |  | 0.267244 | 3.213048 | 24.854807 | 0.753466 | 0.740155 | artifacts/v0_6/idea4_tokenwise/confirm/output_probe_fresh_holdout/results.json |
-| tokenwise_confirmation_fresh_holdout | fresh untouched wikitext test slice shared across seeds | 3 | static_mixture_no_small |  |  | 0.267322 | 3.296346 | 27.014454 | 0.749029 | 0.745535 | artifacts/v0_6/idea4_tokenwise/confirm/output_probe_fresh_holdout/results.json |
-| tokenwise_confirmation_fresh_holdout | fresh untouched wikitext test slice shared across seeds | 3 | tokenwise_mixture |  |  | 0.248886 | 3.185004 | 24.167632 | 0.758319 | 0.742734 | artifacts/v0_6/idea4_tokenwise/confirm/output_probe_fresh_holdout/results.json |
-| tokenwise_confirmation_fresh_holdout | fresh untouched wikitext test slice shared across seeds | 3 | tokenwise_mixture_no_small |  |  | 0.251294 | 3.261786 | 26.097261 | 0.759151 | 0.747393 | artifacts/v0_6/idea4_tokenwise/confirm/output_probe_fresh_holdout/results.json |
+| tokenwise_confirmation_main | development holdout (reused during model selection) | 3 | bridge_only |  |  | 0.288448 | 3.072051 | 21.673345 | 0.755489 | 0.737227 | artifacts/v0_6/idea4_tokenwise/confirm/output_probe_main/results.json |
+| tokenwise_confirmation_main | development holdout (reused during model selection) | 3 | bridge_only_param_matched |  |  | 0.302323 | 3.102081 | 22.330668 | 0.75062 | 0.731407 | artifacts/v0_6/idea4_tokenwise/confirm/output_probe_main/results.json |
+| tokenwise_confirmation_main | development holdout (reused during model selection) | 3 | full_large |  |  | 0 | 2.949112 | 19.19113 | 1 | 1 | artifacts/v0_6/idea4_tokenwise/confirm/output_probe_main/results.json |
+| tokenwise_confirmation_main | development holdout (reused during model selection) | 3 | skip_only |  |  | 0.455535 | 3.380945 | 29.51741 | 0.698153 | 0.696677 | artifacts/v0_6/idea4_tokenwise/confirm/output_probe_main/results.json |
+| tokenwise_confirmation_main | development holdout (reused during model selection) | 3 | static_mixture |  |  | 0.267095 | 3.000438 | 20.156769 | 0.762009 | 0.741646 | artifacts/v0_6/idea4_tokenwise/confirm/output_probe_main/results.json |
+| tokenwise_confirmation_main | development holdout (reused during model selection) | 3 | static_mixture_no_small |  |  | 0.269326 | 3.06899 | 21.597682 | 0.760718 | 0.743137 | artifacts/v0_6/idea4_tokenwise/confirm/output_probe_main/results.json |
+| tokenwise_confirmation_main | development holdout (reused during model selection) | 3 | tokenwise_mixture |  |  | 0.255739 | 2.980182 | 19.76376 | 0.763351 | 0.744268 | artifacts/v0_6/idea4_tokenwise/confirm/output_probe_main/results.json |
+| tokenwise_confirmation_main | development holdout (reused during model selection) | 3 | tokenwise_mixture_no_small |  |  | 0.257501 | 3.038605 | 20.951639 | 0.762129 | 0.746334 | artifacts/v0_6/idea4_tokenwise/confirm/output_probe_main/results.json |
+| tokenwise_confirmation_fresh_holdout | untouched confirmation holdout (fresh Wikitext test slice) | 3 | bridge_only |  |  | 0.289564 | 3.295081 | 26.979976 | 0.745563 | 0.73838 | artifacts/v0_6/idea4_tokenwise/confirm/output_probe_fresh_holdout/results.json |
+| tokenwise_confirmation_fresh_holdout | untouched confirmation holdout (fresh Wikitext test slice) | 3 | bridge_only_param_matched |  |  | 0.301746 | 3.327024 | 27.855381 | 0.737105 | 0.734359 | artifacts/v0_6/idea4_tokenwise/confirm/output_probe_fresh_holdout/results.json |
+| tokenwise_confirmation_fresh_holdout | untouched confirmation holdout (fresh Wikitext test slice) | 3 | full_large |  |  | 0 | 3.235025 | 25.407006 | 1 | 1 | artifacts/v0_6/idea4_tokenwise/confirm/output_probe_fresh_holdout/results.json |
+| tokenwise_confirmation_fresh_holdout | untouched confirmation holdout (fresh Wikitext test slice) | 3 | skip_only |  |  | 0.45204 | 3.636127 | 37.944603 | 0.700915 | 0.699667 | artifacts/v0_6/idea4_tokenwise/confirm/output_probe_fresh_holdout/results.json |
+| tokenwise_confirmation_fresh_holdout | untouched confirmation holdout (fresh Wikitext test slice) | 3 | static_mixture |  |  | 0.267244 | 3.213048 | 24.854807 | 0.753466 | 0.740155 | artifacts/v0_6/idea4_tokenwise/confirm/output_probe_fresh_holdout/results.json |
+| tokenwise_confirmation_fresh_holdout | untouched confirmation holdout (fresh Wikitext test slice) | 3 | static_mixture_no_small |  |  | 0.267322 | 3.296346 | 27.014454 | 0.749029 | 0.745535 | artifacts/v0_6/idea4_tokenwise/confirm/output_probe_fresh_holdout/results.json |
+| tokenwise_confirmation_fresh_holdout | untouched confirmation holdout (fresh Wikitext test slice) | 3 | tokenwise_mixture |  |  | 0.248886 | 3.185004 | 24.167632 | 0.758319 | 0.742734 | artifacts/v0_6/idea4_tokenwise/confirm/output_probe_fresh_holdout/results.json |
+| tokenwise_confirmation_fresh_holdout | untouched confirmation holdout (fresh Wikitext test slice) | 3 | tokenwise_mixture_no_small |  |  | 0.251294 | 3.261786 | 26.097261 | 0.759151 | 0.747393 | artifacts/v0_6/idea4_tokenwise/confirm/output_probe_fresh_holdout/results.json |
 
 ## Table 6. Idea 5 Bounded Discovery Summary
 
@@ -150,26 +150,26 @@ These tables are generated directly from frozen artifacts. CSV and JSON copies l
 
 | row_group | holdout_policy | variant_name | seed_policy | logit_kl_to_teacher_delta | nll_delta | perplexity_delta | top1_agreement_delta | top5_overlap_delta |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| overall_suppression | fresh_untouched | bridge_only | 42,43,44 | 0.040677 | 0.110077 | 2.812344 | -0.012757 | -0.004354 |
-| overall_suppression | fresh_untouched | bridge_only_param_matched | 42,43,44 | 0.052859 | 0.14202 | 3.687748 | -0.021215 | -0.008375 |
-| overall_suppression | fresh_untouched | tokenwise_attn_suppressed | 42,43,44 | 0.109496 | 0.224608 | 6.086972 | -0.033694 | -0.024293 |
-| overall_suppression | fresh_untouched | tokenwise_both_suppressed | 42,43,44 | 0.154198 | 0.379402 | 11.150949 | -0.044093 | -0.031004 |
-| overall_suppression | fresh_untouched | tokenwise_mlp_suppressed | 42,43,44 | 0.182872 | 0.37961 | 11.164554 | -0.053522 | -0.036661 |
-| overall_suppression | fresh_untouched | tokenwise_no_small | 42,43,44 | 0.002408 | 0.076782 | 1.929629 | 0.000832 | 0.004659 |
-| path_specific_suppression | fresh_untouched | tokenwise_attn_suppressed_path_a | 42,43,44 | 0.05877 | 0.107356 | 2.741662 | -0.023988 | -0.012895 |
-| path_specific_suppression | fresh_untouched | tokenwise_attn_suppressed_path_b | 42,43,44 | 0.05224 | 0.114202 | 2.925029 | -0.015391 | -0.008098 |
-| path_specific_suppression | fresh_untouched | tokenwise_mlp_suppressed_path_a | 42,43,44 | 0.089358 | 0.168088 | 4.438798 | -0.033694 | -0.02127 |
-| path_specific_suppression | fresh_untouched | tokenwise_mlp_suppressed_path_b | 42,43,44 | 0.068471 | 0.165835 | 4.365769 | -0.019689 | -0.011869 |
-| overall_suppression | main_validation | bridge_only | 42,43,44 | 0.032709 | 0.091869 | 1.909584 | -0.007862 | -0.007041 |
-| overall_suppression | main_validation | bridge_only_param_matched | 42,43,44 | 0.046584 | 0.121899 | 2.566907 | -0.012731 | -0.012861 |
-| overall_suppression | main_validation | tokenwise_attn_suppressed | 42,43,44 | 0.103797 | 0.21867 | 4.840058 | -0.029798 | -0.026582 |
-| overall_suppression | main_validation | tokenwise_both_suppressed | 42,43,44 | 0.147248 | 0.332872 | 7.813044 | -0.046221 | -0.035207 |
-| overall_suppression | main_validation | tokenwise_mlp_suppressed | 42,43,44 | 0.182743 | 0.350897 | 8.28429 | -0.050819 | -0.042359 |
-| overall_suppression | main_validation | tokenwise_no_small | 42,43,44 | 0.001761 | 0.058422 | 1.187879 | -0.001222 | 0.002067 |
-| path_specific_suppression | main_validation | tokenwise_attn_suppressed_path_a | 42,43,44 | 0.060497 | 0.118126 | 2.49188 | -0.016073 | -0.015143 |
-| path_specific_suppression | main_validation | tokenwise_attn_suppressed_path_b | 42,43,44 | 0.036265 | 0.091609 | 1.906898 | -0.010653 | -0.008452 |
-| path_specific_suppression | main_validation | tokenwise_mlp_suppressed_path_a | 42,43,44 | 0.100613 | 0.174154 | 3.760242 | -0.026991 | -0.023539 |
-| path_specific_suppression | main_validation | tokenwise_mlp_suppressed_path_b | 42,43,44 | 0.049808 | 0.130929 | 2.748704 | -0.013152 | -0.010777 |
+| overall_suppression | untouched_confirmation_holdout | bridge_only | 42,43,44 | 0.040677 | 0.110077 | 2.812344 | -0.012757 | -0.004354 |
+| overall_suppression | untouched_confirmation_holdout | bridge_only_param_matched | 42,43,44 | 0.052859 | 0.14202 | 3.687748 | -0.021215 | -0.008375 |
+| overall_suppression | untouched_confirmation_holdout | tokenwise_attn_suppressed | 42,43,44 | 0.109496 | 0.224608 | 6.086972 | -0.033694 | -0.024293 |
+| overall_suppression | untouched_confirmation_holdout | tokenwise_both_suppressed | 42,43,44 | 0.154198 | 0.379402 | 11.150949 | -0.044093 | -0.031004 |
+| overall_suppression | untouched_confirmation_holdout | tokenwise_mlp_suppressed | 42,43,44 | 0.182872 | 0.37961 | 11.164554 | -0.053522 | -0.036661 |
+| overall_suppression | untouched_confirmation_holdout | tokenwise_no_small | 42,43,44 | 0.002408 | 0.076782 | 1.929629 | 0.000832 | 0.004659 |
+| path_specific_suppression | untouched_confirmation_holdout | tokenwise_attn_suppressed_path_a | 42,43,44 | 0.05877 | 0.107356 | 2.741662 | -0.023988 | -0.012895 |
+| path_specific_suppression | untouched_confirmation_holdout | tokenwise_attn_suppressed_path_b | 42,43,44 | 0.05224 | 0.114202 | 2.925029 | -0.015391 | -0.008098 |
+| path_specific_suppression | untouched_confirmation_holdout | tokenwise_mlp_suppressed_path_a | 42,43,44 | 0.089358 | 0.168088 | 4.438798 | -0.033694 | -0.02127 |
+| path_specific_suppression | untouched_confirmation_holdout | tokenwise_mlp_suppressed_path_b | 42,43,44 | 0.068471 | 0.165835 | 4.365769 | -0.019689 | -0.011869 |
+| overall_suppression | development_holdout | bridge_only | 42,43,44 | 0.032709 | 0.091869 | 1.909584 | -0.007862 | -0.007041 |
+| overall_suppression | development_holdout | bridge_only_param_matched | 42,43,44 | 0.046584 | 0.121899 | 2.566907 | -0.012731 | -0.012861 |
+| overall_suppression | development_holdout | tokenwise_attn_suppressed | 42,43,44 | 0.103797 | 0.21867 | 4.840058 | -0.029798 | -0.026582 |
+| overall_suppression | development_holdout | tokenwise_both_suppressed | 42,43,44 | 0.147248 | 0.332872 | 7.813044 | -0.046221 | -0.035207 |
+| overall_suppression | development_holdout | tokenwise_mlp_suppressed | 42,43,44 | 0.182743 | 0.350897 | 8.28429 | -0.050819 | -0.042359 |
+| overall_suppression | development_holdout | tokenwise_no_small | 42,43,44 | 0.001761 | 0.058422 | 1.187879 | -0.001222 | 0.002067 |
+| path_specific_suppression | development_holdout | tokenwise_attn_suppressed_path_a | 42,43,44 | 0.060497 | 0.118126 | 2.49188 | -0.016073 | -0.015143 |
+| path_specific_suppression | development_holdout | tokenwise_attn_suppressed_path_b | 42,43,44 | 0.036265 | 0.091609 | 1.906898 | -0.010653 | -0.008452 |
+| path_specific_suppression | development_holdout | tokenwise_mlp_suppressed_path_a | 42,43,44 | 0.100613 | 0.174154 | 3.760242 | -0.026991 | -0.023539 |
+| path_specific_suppression | development_holdout | tokenwise_mlp_suppressed_path_b | 42,43,44 | 0.049808 | 0.130929 | 2.748704 | -0.013152 | -0.010777 |
 
 ## Table 8. v0_9 Generalization Summary
 

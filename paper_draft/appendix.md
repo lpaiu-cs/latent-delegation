@@ -58,3 +58,4 @@ The prose source bundle used to assemble the manuscript is:
 - [limitations.md](</E:/lab/latent-delegation/notes/paper/limitations.md>)
 - [conclusion.md](</E:/lab/latent-delegation/notes/paper/conclusion.md>)
 - [claim_boundary.md](</E:/lab/latent-delegation/notes/paper/claim_boundary.md>)
+- [references.md](</E:/lab/latent-delegation/notes/paper/references.md>)
