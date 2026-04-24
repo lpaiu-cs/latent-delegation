@@ -4,9 +4,12 @@ import torch
 
 from src.adaptive_bridge.analysis_runtime import (
     _restrict_gate_weights,
+    apply_gate_granularity,
     aggregate_stats,
+    gate_granularity_policies,
     paired_bootstrap_summary,
     route_policies,
+    task_global_mean_gate_weights,
     task_gate_stats_from_batches,
 )
 
@@ -53,6 +56,61 @@ def test_route_policy_names_cover_required_ablations() -> None:
 
     assert names == [
         "full_adaptive_bridge_moe",
+        "bridge_only_forced",
+        "bridge_plus_path_a_only",
+        "bridge_plus_path_b_only",
+        "delegated_paths_only",
+    ]
+
+
+def test_apply_gate_granularity_sequence_mean_reuses_per_sample_mean() -> None:
+    weights = torch.tensor(
+        [
+            [[0.7, 0.2, 0.1], [0.2, 0.3, 0.5]],
+            [[0.1, 0.7, 0.2], [0.5, 0.2, 0.3]],
+        ],
+        dtype=torch.float32,
+    )
+    attention_mask = torch.tensor([[1, 1], [1, 0]], dtype=torch.long)
+
+    collapsed = apply_gate_granularity(weights, attention_mask, gate_granularity="sequence_mean")
+
+    assert torch.allclose(collapsed[0, 0], collapsed[0, 1])
+    assert torch.allclose(collapsed[0, 0], torch.tensor([0.45, 0.25, 0.30]))
+    assert torch.allclose(collapsed[1, 0], collapsed[1, 1])
+    assert torch.allclose(collapsed[1, 0], torch.tensor([0.10, 0.70, 0.20]))
+
+
+def test_apply_gate_granularity_global_mean_uses_fixed_distribution() -> None:
+    weights = torch.tensor([[[0.8, 0.1, 0.1], [0.2, 0.3, 0.5]]], dtype=torch.float32)
+
+    collapsed = apply_gate_granularity(
+        weights,
+        attention_mask=None,
+        gate_granularity="global_mean",
+        global_mean_weights=torch.tensor([2.0, 1.0, 1.0], dtype=torch.float32),
+    )
+
+    assert torch.allclose(collapsed[0, 0], collapsed[0, 1])
+    assert torch.allclose(collapsed[0, 0], torch.tensor([0.5, 0.25, 0.25]))
+
+
+def test_task_global_mean_gate_weights_averages_valid_tokens_only() -> None:
+    mean_weights = task_global_mean_gate_weights(
+        [torch.tensor([[[0.6, 0.2, 0.2], [0.2, 0.4, 0.4]]], dtype=torch.float32)],
+        [torch.tensor([[1, 0]], dtype=torch.long)],
+    )
+
+    assert torch.allclose(mean_weights, torch.tensor([0.6, 0.2, 0.2]))
+
+
+def test_gate_granularity_policy_names_cover_required_variants() -> None:
+    names = [policy.name for policy in gate_granularity_policies()]
+
+    assert names == [
+        "full_tokenwise_gate",
+        "sequence_mean_gate",
+        "global_mean_gate",
         "bridge_only_forced",
         "bridge_plus_path_a_only",
         "bridge_plus_path_b_only",

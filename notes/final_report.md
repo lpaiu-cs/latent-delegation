@@ -57,6 +57,18 @@ Current claim boundary for this fork:
 - this is now stronger than a `1`-seed result, but still limited to the fixed `42/43/44` seed set and bounded task suite
 - the result supports continuing the fork, not replacing the frozen paper result
 
+## Adaptive-Bridge Evidence Consolidation
+
+Follow-up evidence consolidation on `2026-04-25` did not promote a new architecture.
+
+- the active reference remains `adaptive_bridge_moe`
+- internal and `LAMBADA` preservation remain robust
+- the larger `PIQA` pass no longer shows a robust bridge-baseline win
+- `ARC-Easy` remains unresolved
+- token-wise routing still appears materially necessary in the current model
+
+So the fork remains positive, but not yet at a bridge-conditioned simplification step.
+
 ## Frozen Repo State
 
 - `v0.6.0` is the frozen current best model/result in this repo.

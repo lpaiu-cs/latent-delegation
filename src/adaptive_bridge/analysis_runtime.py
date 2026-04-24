@@ -26,6 +26,7 @@ class RoutePolicy:
 
     name: str
     allowed_experts: tuple[str, ...] | None
+    gate_granularity: str = "tokenwise"
 
 
 @dataclass(frozen=True)
@@ -46,10 +47,17 @@ class TaskGateStats:
 class RouteAblatedAdaptiveModel(nn.Module):
     """Thin inference-only wrapper that restricts an adaptive MoE to a route policy."""
 
-    def __init__(self, base_model: BridgeAwareResidualMoE, policy: RoutePolicy) -> None:
+    def __init__(
+        self,
+        base_model: BridgeAwareResidualMoE,
+        policy: RoutePolicy,
+        *,
+        global_mean_weights: torch.Tensor | None = None,
+    ) -> None:
         super().__init__()
         self.base_model = base_model
         self.policy = policy
+        self.global_mean_weights = global_mean_weights
 
     def forward(
         self,
@@ -61,6 +69,8 @@ class RouteAblatedAdaptiveModel(nn.Module):
             input_ids,
             attention_mask=attention_mask,
             allowed_experts=self.policy.allowed_experts,
+            gate_granularity=self.policy.gate_granularity,
+            global_mean_weights=self.global_mean_weights,
         )
         return output
 
@@ -86,12 +96,71 @@ def _restrict_gate_weights(gate_logits: torch.Tensor, allowed_experts: tuple[str
     return F.softmax(masked_logits, dim=-1).to(dtype=dtype, device=device)
 
 
+def apply_gate_granularity(
+    gate_weights: torch.Tensor,
+    attention_mask: torch.Tensor | None,
+    *,
+    gate_granularity: str,
+    global_mean_weights: torch.Tensor | None = None,
+) -> torch.Tensor:
+    """Project token-wise gate weights onto a coarser inference-only granularity."""
+
+    if gate_granularity == "tokenwise":
+        return gate_weights
+    if gate_granularity == "sequence_mean":
+        if attention_mask is None:
+            sequence_mean = gate_weights.mean(dim=1, keepdim=True)
+        else:
+            mask = attention_mask.to(dtype=gate_weights.dtype, device=gate_weights.device).unsqueeze(-1)
+            denom = mask.sum(dim=1, keepdim=True).clamp_min(1.0)
+            sequence_mean = (gate_weights * mask).sum(dim=1, keepdim=True) / denom
+        return sequence_mean.expand_as(gate_weights)
+    if gate_granularity == "global_mean":
+        if global_mean_weights is None:
+            raise ValueError("global_mean_weights is required for gate_granularity='global_mean'.")
+        mean_weights = global_mean_weights.to(dtype=gate_weights.dtype, device=gate_weights.device)
+        if mean_weights.dim() == 1:
+            mean_weights = mean_weights.view(1, 1, -1)
+        elif mean_weights.dim() == 2:
+            mean_weights = mean_weights.unsqueeze(1)
+        mean_weights = mean_weights / mean_weights.sum(dim=-1, keepdim=True).clamp_min(1.0e-8)
+        return mean_weights.expand_as(gate_weights)
+    raise ValueError(f"Unsupported gate granularity: {gate_granularity}")
+
+
+def _masked_valid_gate_weights(
+    gate_weight_batches: Iterable[torch.Tensor],
+    attention_mask_batches: Iterable[torch.Tensor],
+) -> list[torch.Tensor]:
+    valid_weights: list[torch.Tensor] = []
+    for gate_weights, attention_mask in zip(gate_weight_batches, attention_mask_batches, strict=True):
+        mask = attention_mask.bool()
+        if mask.any():
+            valid_weights.append(gate_weights.detach().float().cpu()[mask.cpu()])
+    return valid_weights
+
+
+def task_global_mean_gate_weights(
+    gate_weight_batches: Iterable[torch.Tensor],
+    attention_mask_batches: Iterable[torch.Tensor],
+) -> torch.Tensor:
+    """Return one mean gate vector over every valid token in a task slice."""
+
+    valid_weights = _masked_valid_gate_weights(gate_weight_batches, attention_mask_batches)
+    if not valid_weights:
+        raise ValueError("task_global_mean_gate_weights requires at least one valid token.")
+    weights = torch.cat(valid_weights, dim=0)
+    return weights.mean(dim=0)
+
+
 def adaptive_forward_with_policy(
     model: BridgeAwareResidualMoE,
     input_ids: torch.Tensor,
     attention_mask: torch.Tensor | None = None,
     *,
     allowed_experts: tuple[str, ...] | None = None,
+    gate_granularity: str = "tokenwise",
+    global_mean_weights: torch.Tensor | None = None,
 ) -> tuple[HybridForwardOutput, torch.Tensor]:
     """Run one adaptive MoE forward pass with an optional route restriction."""
 
@@ -110,6 +179,12 @@ def adaptive_forward_with_policy(
         )
         gate_logits = model.gate_network(hidden_after_prefix)
         gate_weights = _restrict_gate_weights(gate_logits, allowed_experts)
+        gate_weights = apply_gate_granularity(
+            gate_weights,
+            attention_mask,
+            gate_granularity=gate_granularity,
+            global_mean_weights=global_mean_weights,
+        )
         delta_mix = (
             gate_weights[..., 0:1] * expert_outputs["bridge"].delta_large
             + gate_weights[..., 1:2] * expert_outputs["path_b"].delta_large
@@ -141,11 +216,7 @@ def task_gate_stats_from_batches(
 ) -> TaskGateStats:
     """Aggregate token-level gate statistics from one or more batches."""
 
-    valid_weights: list[torch.Tensor] = []
-    for gate_weights, attention_mask in zip(gate_weight_batches, attention_mask_batches, strict=True):
-        mask = attention_mask.bool()
-        if mask.any():
-            valid_weights.append(gate_weights.detach().float().cpu()[mask.cpu()])
+    valid_weights = _masked_valid_gate_weights(gate_weight_batches, attention_mask_batches)
     if not valid_weights:
         return TaskGateStats(
             token_count=0,
@@ -173,6 +244,58 @@ def task_gate_stats_from_batches(
         path_b_usage_var=float(weights[:, 1].var(unbiased=False).item()),
         path_a_usage_var=float(weights[:, 2].var(unbiased=False).item()),
     )
+
+
+def collect_task_gate_weight_batches(
+    model: BridgeAwareResidualMoE,
+    tokenizer: Any,
+    examples: list[Any],
+    *,
+    task_category: str,
+    max_seq_len: int,
+    device: torch.device,
+    allowed_experts: tuple[str, ...] | None = None,
+    gate_granularity: str = "tokenwise",
+    global_mean_weights: torch.Tensor | None = None,
+) -> tuple[list[torch.Tensor], list[torch.Tensor]]:
+    """Collect per-batch gate tensors and masks for one task slice."""
+
+    gate_batches: list[torch.Tensor] = []
+    mask_batches: list[torch.Tensor] = []
+    for example in examples:
+        if task_category == "multichoice":
+            from src.v0_9.task_scoring import build_choice_batch
+
+            batch = build_choice_batch(
+                tokenizer,
+                example.prompt,
+                example.choices,
+                max_seq_len=max_seq_len,
+                device=device,
+            )
+            _, gate_weights = adaptive_forward_with_policy(
+                model,
+                batch.input_ids,
+                attention_mask=batch.attention_mask,
+                allowed_experts=allowed_experts,
+                gate_granularity=gate_granularity,
+                global_mean_weights=global_mean_weights,
+            )
+            gate_batches.append(gate_weights.cpu())
+            mask_batches.append(batch.attention_mask.cpu())
+        else:
+            tensors = _example_tensors(tokenizer, example.text, max_seq_len=max_seq_len, device=device)
+            _, gate_weights = adaptive_forward_with_policy(
+                model,
+                tensors["input_ids"],
+                attention_mask=tensors["attention_mask"],
+                allowed_experts=allowed_experts,
+                gate_granularity=gate_granularity,
+                global_mean_weights=global_mean_weights,
+            )
+            gate_batches.append(gate_weights.cpu())
+            mask_batches.append(tensors["attention_mask"].cpu())
+    return gate_batches, mask_batches
 
 
 def _example_tensors(tokenizer: Any, text: str, max_seq_len: int, device: torch.device) -> dict[str, torch.Tensor | bool]:
@@ -345,12 +468,26 @@ def route_policies() -> list[RoutePolicy]:
     ]
 
 
+def gate_granularity_policies() -> list[RoutePolicy]:
+    """Return the fixed granularity and route policies for audit-time inference."""
+
+    return [
+        RoutePolicy(name="full_tokenwise_gate", allowed_experts=None, gate_granularity="tokenwise"),
+        RoutePolicy(name="sequence_mean_gate", allowed_experts=None, gate_granularity="sequence_mean"),
+        RoutePolicy(name="global_mean_gate", allowed_experts=None, gate_granularity="global_mean"),
+        RoutePolicy(name="bridge_only_forced", allowed_experts=("bridge",), gate_granularity="tokenwise"),
+        RoutePolicy(name="bridge_plus_path_a_only", allowed_experts=("bridge", "path_a"), gate_granularity="tokenwise"),
+        RoutePolicy(name="bridge_plus_path_b_only", allowed_experts=("bridge", "path_b"), gate_granularity="tokenwise"),
+        RoutePolicy(name="delegated_paths_only", allowed_experts=("path_b", "path_a"), gate_granularity="tokenwise"),
+    ]
+
+
 def task_family(task_name: str) -> str:
     """Return a coarse task-family label for reporting."""
 
     if task_name in {"development_holdout", "confirmation_holdout", "lambada_openai"}:
         return "lm_style"
-    if task_name in {"piqa", "arc_easy"}:
+    if task_name in {"piqa", "arc_easy", "arc_challenge"}:
         return "multichoice"
     return "other"
 
@@ -367,36 +504,15 @@ def gate_stats_for_model_task(
 ) -> TaskGateStats:
     """Compute token-level gate statistics for one model on one task slice."""
 
-    gate_batches: list[torch.Tensor] = []
-    mask_batches: list[torch.Tensor] = []
     collapse_threshold = adaptive_bridge_gate_settings(model.config).collapse_threshold
-    for example in examples:
-        if task_category == "multichoice":
-            from src.v0_9.task_scoring import build_choice_batch
-
-            batch = build_choice_batch(
-                tokenizer,
-                example.prompt,
-                example.choices,
-                max_seq_len=max_seq_len,
-                device=device,
-            )
-            _, gate_weights = adaptive_forward_with_policy(
-                model,
-                batch.input_ids,
-                attention_mask=batch.attention_mask,
-            )
-            gate_batches.append(gate_weights.cpu())
-            mask_batches.append(batch.attention_mask.cpu())
-        else:
-            tensors = _example_tensors(tokenizer, example.text, max_seq_len=max_seq_len, device=device)
-            _, gate_weights = adaptive_forward_with_policy(
-                model,
-                tensors["input_ids"],
-                attention_mask=tensors["attention_mask"],
-            )
-            gate_batches.append(gate_weights.cpu())
-            mask_batches.append(tensors["attention_mask"].cpu())
+    gate_batches, mask_batches = collect_task_gate_weight_batches(
+        model,
+        tokenizer,
+        examples,
+        task_category=task_category,
+        max_seq_len=max_seq_len,
+        device=device,
+    )
     return task_gate_stats_from_batches(
         gate_batches,
         mask_batches,

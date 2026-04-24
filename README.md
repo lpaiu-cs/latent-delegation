@@ -55,11 +55,14 @@ The question is whether bridge + delegation can beat the frozen `v0.6.0` token-w
   - `debug_tiny.yaml`
   - `gemma2_first_milestone.yaml`
   - `gemma2_three_seed_replication.yaml`
+  - `gemma2_eval_scaleup.yaml`
 - `scripts/adaptive_bridge/`
   - `run_debug_smoke.ps1`
   - `run_train.ps1`
   - `run_eval.ps1`
+  - `run_eval_scaleup.ps1`
   - `run_eval_hardening.ps1`
+  - `run_gate_granularity.ps1`
   - `run_route_ablation.ps1`
   - `run_real_three_seed_train.ps1`
   - `run_real_three_seed_eval.ps1`
@@ -140,6 +143,25 @@ Run the bounded eval hardening package:
 powershell -ExecutionPolicy Bypass -File .\scripts\adaptive_bridge\run_eval_hardening.ps1
 ```
 
+Run the larger-slice evidence-consolidation eval package:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\adaptive_bridge\run_eval_scaleup.ps1
+```
+
+This uses:
+
+- full `PIQA` validation
+- full `ARC-Easy` validation
+- full `ARC-Challenge` validation
+- a larger deterministic `LAMBADA` anchor slice
+
+Run the inference-only gate granularity audit:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\adaptive_bridge\run_gate_granularity.ps1
+```
+
 Run the inference-only route ablation package:
 
 ```powershell
@@ -190,8 +212,11 @@ Completed on `2026-04-24`:
 - fairness audit: `notes/adaptive_bridge_fairness_audit.md`
 - summary note: `notes/adaptive_bridge_summary.md`
 - eval hardening note: `notes/adaptive_bridge_eval_hardening.md`
+- eval scaleup note: `notes/adaptive_bridge_eval_scaleup.md`
+- gate granularity note: `notes/adaptive_bridge_gate_granularity.md`
 - route ablation note: `notes/adaptive_bridge_route_ablation.md`
 - phase-2 decision: `notes/adaptive_bridge_phase2_decision.md`
+- phase-3 decision: `notes/adaptive_bridge_phase3_decision.md`
 - blockers: `notes/blockers.md`
 
 ## Current Status And Next Step

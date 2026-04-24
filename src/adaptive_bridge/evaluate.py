@@ -116,6 +116,24 @@ def _synthetic_multichoice_examples(name: str, sample_count: int) -> list[TaskEx
                 metadata={"synthetic": True},
             ),
         ],
+        "arc_challenge": [
+            TaskExample(
+                task_name="arc_challenge",
+                example_id="arc_challenge_0",
+                prompt="Question: Which force pulls objects toward Earth?\nAnswer:",
+                choices=[" gravity", " magnetism", " friction", " evaporation"],
+                label_index=0,
+                metadata={"synthetic": True},
+            ),
+            TaskExample(
+                task_name="arc_challenge",
+                example_id="arc_challenge_1",
+                prompt="Question: Which change is most directly caused by heating liquid water?\nAnswer:",
+                choices=[" it can evaporate into water vapor", " it becomes more salty", " it turns into sand", " it stops taking up space"],
+                label_index=0,
+                metadata={"synthetic": True},
+            ),
+        ],
     }
     return examples_by_name[name][:sample_count]
 
@@ -203,7 +221,7 @@ def _build_multichoice_examples(task: Any, debug_mode: bool) -> tuple[list[TaskE
                 prompt = f"Goal: {_clean_text(record['goal'])}\nSolution:"
                 choices = [f" {_clean_text(record['sol1'])}", f" {_clean_text(record['sol2'])}"]
                 label_index = int(record["label"])
-            elif task.name == "arc_easy":
+            elif task.name in {"arc_easy", "arc_challenge"}:
                 choice_labels = list(record["choices"]["label"])
                 choice_texts = [f" {_clean_text(text)}" for text in record["choices"]["text"]]
                 answer_key = str(record["answerKey"])

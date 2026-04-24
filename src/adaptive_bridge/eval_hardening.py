@@ -37,6 +37,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--eval-dir", required=True)
     parser.add_argument("--output-path", required=True)
     parser.add_argument("--bootstrap-samples", type=int, default=4000)
+    parser.add_argument("--skip-expert-usage", action="store_true")
     return parser.parse_args()
 
 
@@ -356,8 +357,8 @@ def main() -> None:
     no_small = _no_small_separation(eval_dir)
     eval_results = _load_eval_results(eval_dir)
     summary_index = _summary_row_index(eval_results["summary_rows"])
-    expert_usage = _expert_usage(config, train_dir)
-    task_pattern = _task_conditional_pattern(expert_usage)
+    expert_usage = None if args.skip_expert_usage else _expert_usage(config, train_dir)
+    task_pattern = None if expert_usage is None else _task_conditional_pattern(expert_usage)
 
     output = {
         "config_path": args.config,
@@ -373,6 +374,7 @@ def main() -> None:
         "paired_uncertainty": paired_uncertainty,
         "expert_usage": expert_usage,
         "task_conditional_pattern": task_pattern,
+        "expert_usage_status": "skipped" if args.skip_expert_usage else "computed",
         "unresolved_weakness": {
             "arc_easy_remains_unresolved": not (
                 float(summary_index[("arc_easy", "adaptive_bridge_moe")]["accuracy_mean"])
