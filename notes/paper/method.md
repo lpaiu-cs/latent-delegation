@@ -32,6 +32,18 @@ The final model replaces the global mixture with a low-capacity token-wise route
 
 The token-wise no-small control uses the same gate family and the same interface routes but removes delegated small-model computation.
 
+## Bridge Controls
+
+The bridge baselines stay entirely in large hidden space and use no small-model computation. For large hidden width `d_L` and bridge rank `r`, the bridge is a bias-free two-layer low-rank adapter:
+
+`B_r(h_t^L) = U_r D_r h_t^L`, with `D_r in R^{r x d_L}` and `U_r in R^{d_L x r}`.
+
+The bridged state is
+
+`h_t^B = h_t^L + gamma B_r(h_t^L)`, with `gamma = tanh(a)`.
+
+The scalar gate `a` is learned and initialized from the same small positive raw value as the hybrid gates. The down projection is Kaiming-initialized and the up projection is zero-initialized, so the bridge starts close to skip-only. The plain `bridge_only` baseline uses rank `64`; with Gemma-2 9B hidden width `3584`, this gives `2 * 3584 * 64 + 1 = 458,753` trainable parameters. The parameter-matched bridge uses the same function class with rank `107`, giving `2 * 3584 * 107 + 1 = 766,977` trainable parameters.
+
 ## Training Objectives
 
 Stage A trains only the entry projector and aligns the large-model splice state to the frozen small-model reference state:

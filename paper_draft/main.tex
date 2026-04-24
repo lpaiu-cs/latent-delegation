@@ -99,6 +99,18 @@ g_t &= \mathrm{softmax}(W_g N(h_t^L) + b_g),\\
 
 The token-wise no-small control uses the same gate family and the same interface routes but removes delegated small-model computation.
 
+\subsection{Bridge Controls}
+
+The bridge baselines stay entirely in the large hidden space and use no small-model computation. For large hidden width $d_L$ and bridge rank $r$, the bridge function is a bias-free two-layer low-rank adapter
+\begin{equation}
+B_r(h_t^L) = U_r D_r h_t^L,\quad D_r \in \mathbb{R}^{r \times d_L},\quad U_r \in \mathbb{R}^{d_L \times r}.
+\end{equation}
+The bridged state is
+\begin{equation}
+h_t^B = h_t^L + \gamma B_r(h_t^L),\quad \gamma = \tanh(a),
+\end{equation}
+where $a$ is a learned scalar gate initialized from the same small positive raw value as the hybrid gates. The down projection is Kaiming-initialized and the up projection is zero-initialized, so the baseline starts close to skip-only and learns a large-space correction under the same Stage B objective. The plain \texttt{bridge\_only} baseline uses $r=64$; with Gemma-2 9B hidden width $d_L=3584$, this gives $2d_Lr+1=\texttt{458,753}$ trainable parameters including the scalar gate. The parameter-matched bridge uses the same function class with $r=107$, giving $2d_Lr+1=\texttt{766,977}$ trainable parameters, which closely matches the token-wise two-path budget.
+
 \subsection{Training Objectives}
 
 Stage A trains only the entry projector and aligns the large-model splice state to the frozen small-model reference state:
@@ -121,6 +133,10 @@ Parameter matching is explicit because routing adds trainable capacity beyond a 
 \subsection{Hardware, Seeds, And Workflow}
 
 All experiments were run in a native Windows workflow on a single RTX 5090-class GPU using same-family Gemma-2 9B and 2B backbones. The core confirmed result families use seeds \texttt{42, 43, 44}. Deterministic evaluation subsets and saved sample IDs are used throughout.
+
+\subsection{Adapter Training Data And Optimization}
+
+Adapter training uses fixed lightweight corpus slices rather than a broad training mixture. For each seed, the training pool contains \texttt{128} non-empty Wikitext-103-v1 train snippets sampled with the experiment seed and \texttt{64} GSM8K train question-answer records sampled with seed offset \texttt{+17}; all sequences are tokenized to \texttt{seq\_len = 256}. Stage A uses the first \texttt{144} examples of that pool, corresponding to the configured 75\% Stage A cutoff, and Stage B uses the full \texttt{192}-example pool. The confirmed single-path shortlist runs train Stage A for \texttt{200} optimizer steps and Stage B for \texttt{200} optimizer steps. The static mixture warm-starts both paths from those confirmed single-path checkpoints and trains only Stage B for \texttt{200} steps. The token-wise model warm-starts from the static mixture checkpoint, freezes the entry projectors, and trains only the return adapters plus gate network for \texttt{200} Stage B steps. All confirmed runs use AdamW, weight decay \texttt{0}, gradient clipping at \texttt{1.0}, micro-batch size \texttt{1}, gradient accumulation \texttt{8}, and final fixed-budget checkpoint selection with no validation-based early stopping. Phase 1 and static mixture Stage B use learning rate \texttt{3e-4}; the final token-wise Stage B uses return-adapter LR \texttt{1.5e-4} and gate LR \texttt{3e-4}. Appendix~\ref{sec:adapter-training-appendix} gives the exact tabular protocol.
 
 \subsection{Development Holdout And Untouched Confirmation Holdout}
 

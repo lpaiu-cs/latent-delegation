@@ -1,5 +1,28 @@
 \section{Supplementary Protocol Details}
 
+\subsection{Adapter Training Protocol}
+\label{sec:adapter-training-appendix}
+
+Table~\ref{tab:adapter-training} records the adapter-training protocol used by the confirmed result family. All backbone weights remain frozen, all corpora are deterministic per seed, and final checkpoints are selected by fixed step budget rather than validation-based early stopping.
+
+\begin{table}[h]
+\centering
+\caption{Stage A/B adapter-training settings for the confirmed internal result family. Stage A uses the configured 75\% prefix of the training pool; Stage B uses the full pool.}
+\label{tab:adapter-training}
+\small
+\begin{tabular}{>{\raggedright\arraybackslash}p{0.18\linewidth} >{\raggedright\arraybackslash}p{0.20\linewidth} >{\centering\arraybackslash}p{0.10\linewidth} >{\centering\arraybackslash}p{0.11\linewidth} >{\centering\arraybackslash}p{0.11\linewidth} >{\raggedright\arraybackslash}p{0.20\linewidth}}
+\toprule
+Run family & Training pool & Steps & Optimizer / LR & Batch policy & Checkpoint selection \\
+\midrule
+Phase 1 single-path shortlist & Stage A: 144 examples; Stage B: 192 examples from 128 Wikitext train snippets + 64 GSM8K train QA records & A: 200; B: 200 & AdamW, LR $3\cdot10^{-4}$ & micro-batch 1, grad accum 8, seq_len 256 & final fixed-budget checkpoint; no early stopping \\
+Static two-path mixture & Same Stage B pool; paths warm-started from confirmed Phase 1 checkpoints & B: 200 & AdamW, LR $3\cdot10^{-4}$ & micro-batch 1, grad accum 8, seq_len 256 & final fixed-budget checkpoint; no early stopping \\
+Token-wise two-path routing & Same Stage B pool; warm-started from static mixture; entry projectors frozen & B: 200 & AdamW, return LR $1.5\cdot10^{-4}$, gate LR $3\cdot10^{-4}$ & micro-batch 1, grad accum 8, seq_len 256 & final fixed-budget checkpoint; no early stopping \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The Wikitext training examples are sampled from non-empty Wikitext-103-v1 train records with the run seed. GSM8K training examples are sampled from the GSM8K train split with seed offset \texttt{+17}. Validation diagnostics use \texttt{32} Wikitext-103-v1 validation examples sampled with seed offset \texttt{+101}; the untouched confirmation holdout is separate and sampled from the Wikitext-103-v1 test split with seed \texttt{7606}.
+
 \subsection{Bounded Generalization Subset Policy}
 
 Table~\ref{tab:subset-policy} makes the bounded external-evaluation policy explicit. None of these tasks uses a full benchmark sweep in the current paper. Every task uses a deterministic fixed-size subset with saved sample identifiers.

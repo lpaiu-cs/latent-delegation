@@ -2,6 +2,19 @@
 
 These tables are generated directly from frozen artifacts. CSV and JSON copies live under `artifacts/paper_tables/`.
 
+## Appendix Table A1. Adapter Training Protocol
+
+- This table resolves the paper-method reproducibility detail that is not an output result table.
+- It records Stage A/B corpus size, step budget, optimizer, LR, batch/accumulation, trainable modules, checkpoint selection, and source configs.
+- Machine-readable files: `table_a1_adapter_training_protocol.csv`, `table_a1_adapter_training_protocol.json`.
+- Source configs: `configs/v0_6/phase1_real/candidate_a_confirm_seed42.yaml`, `configs/v0_6/phase1_real/candidate_b_confirm_seed42.yaml`, `configs/v0_6/idea4/static_mixture_confirm_seed42.yaml`, `configs/v0_6/idea4/tokenwise_confirm_seed42.yaml`.
+
+| run_family | training_pool | stage_a_steps | stage_b_steps | optimizer | base_lr | return_lr | gate_lr | weight_decay | max_grad_norm | micro_batch_size | grad_accum_steps | seq_len | checkpoint_selection | trainable_modules |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| phase1_single_path_shortlist | Stage A: 144 examples; Stage B: 192 examples from 128 Wikitext-103-v1 train snippets plus 64 GSM8K train QA records | 200 | 200 | AdamW | 3.0e-4 |  |  | 0.0 | 1.0 | 1 | 8 | 256 | final fixed-budget checkpoint; no validation early stopping | Stage A: entry projector; Stage B: return adapter and scalar gate |
+| static_two_path_mixture | Same Stage B pool; paths warm-started from confirmed Phase 1 checkpoints | 0 | 200 | AdamW | 3.0e-4 |  |  | 0.0 | 1.0 | 1 | 8 | 256 | final fixed-budget checkpoint; no validation early stopping | two return adapters plus global mixture logits; entry projectors loaded from Phase 1 and frozen |
+| tokenwise_two_path_routing | Same Stage B pool; warm-started from static mixture; entry projectors frozen | 0 | 200 | AdamW | 1.5e-4 | 1.5e-4 | 3.0e-4 | 0.0 | 1.0 | 1 | 8 | 256 | final fixed-budget checkpoint; no validation early stopping | two return adapters plus token-wise gate network |
+
 ## Table 1. Bring-Up / Smoke Summary
 
 - Exact metric names are preserved in the machine-readable CSV/JSON.

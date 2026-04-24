@@ -70,7 +70,19 @@ The final model replaces the global mixture with a low-capacity token-wise route
 
 The token-wise no-small control uses the same gate family and the same interface routes but removes delegated small-model computation.
 
-### 4.4 Training Objectives
+### 4.4 Bridge Controls
+
+The bridge baselines stay entirely in large hidden space and use no small-model computation. For large hidden width `d_L` and bridge rank `r`, the bridge is a bias-free two-layer low-rank adapter:
+
+`B_r(h_t^L) = U_r D_r h_t^L`, with `D_r in R^{r x d_L}` and `U_r in R^{d_L x r}`.
+
+The bridged state is
+
+`h_t^B = h_t^L + gamma B_r(h_t^L)`, with `gamma = tanh(a)`.
+
+The scalar gate `a` is learned and initialized from the same small positive raw value as the hybrid gates. The down projection is Kaiming-initialized and the up projection is zero-initialized, so the bridge starts close to skip-only. The plain `bridge_only` baseline uses rank `64`; with Gemma-2 9B hidden width `3584`, this gives `2 * 3584 * 64 + 1 = 458,753` trainable parameters. The parameter-matched bridge uses the same function class with rank `107`, giving `2 * 3584 * 107 + 1 = 766,977` trainable parameters.
+
+### 4.5 Training Objectives
 
 Stage A trains only the entry projector and aligns the large-model splice state to the frozen small-model reference state:
 
@@ -82,7 +94,7 @@ The decisive training regime is output-aware Stage B. Its implemented objective 
 
 where `h^T` is the frozen large-model hidden state after the removed large block, `L_KL` is teacher-logit KL, and `L_CE` is shifted next-token cross-entropy. In the confirmed runs, `lambda_KL = 5.0`, `lambda_CE = 1.0`, and `lambda_D = 1e-4`. The token-wise gate adds only a small stability package: a weak entropy term, a weak KL-to-static-prior term, and no temporal smoothness term in the confirmed final configuration. Stage C is intentionally not used in this paper.
 
-### 4.5 Fairness And Parameter Budgets
+### 4.6 Fairness And Parameter Budgets
 
 Parameter matching is explicit because routing adds trainable capacity beyond a plain large-space bridge. The static two-path mixture uses `753,666` trainable parameters, the token-wise two-path router uses `764,418`, and the matched token-wise no-small control uses the same budget. The plain bridge baseline uses `458,753` trainable parameters, so we also include an updated parameter-matched bridge with `766,977` trainable parameters. This fairness audit matters because the core scientific comparison is not whether the hybrid works at all, but whether delegated small-model computation adds value beyond a strong use of comparable trainable capacity in the large model's own latent space.
 
@@ -92,15 +104,23 @@ Parameter matching is explicit because routing adds trainable capacity beyond a 
 
 All experiments were run in a native Windows workflow on a single RTX 5090-class GPU using same-family Gemma-2 9B and 2B backbones. The core confirmed result families use seeds `42, 43, 44`. Deterministic evaluation subsets and saved sample IDs are used throughout.
 
-### 5.2 Development Holdout And Untouched Confirmation Holdout
+### 5.2 Adapter Training Data And Optimization
+
+Adapter training uses fixed lightweight corpus slices rather than a broad training mixture. For each seed, the training pool contains `128` non-empty Wikitext-103-v1 train snippets sampled with the experiment seed and `64` GSM8K train question-answer records sampled with seed offset `+17`; all sequences are tokenized to `seq_len = 256`. Stage A uses the first `144` examples of that pool, corresponding to the configured 75% Stage A cutoff, and Stage B uses the full `192`-example pool.
+
+The confirmed single-path shortlist runs train Stage A for `200` optimizer steps and Stage B for `200` optimizer steps. The static mixture warm-starts both paths from those confirmed single-path checkpoints and trains only Stage B for `200` steps. The token-wise model warm-starts from the static mixture checkpoint, freezes the entry projectors, and trains only the return adapters plus gate network for `200` Stage B steps.
+
+All confirmed runs use AdamW, weight decay `0`, gradient clipping at `1.0`, micro-batch size `1`, gradient accumulation `8`, and final fixed-budget checkpoint selection with no validation-based early stopping. Phase 1 and static mixture Stage B use learning rate `3e-4`; the final token-wise Stage B uses return-adapter LR `1.5e-4` and gate LR `3e-4`. Appendix A tabulates the protocol.
+
+### 5.3 Development Holdout And Untouched Confirmation Holdout
 
 We distinguish two LM-style holdout policies. The first is a development holdout: the original held-out slice reused during model development and model-selection decisions. The second is an untouched confirmation holdout: a fresh `wikitext-103-v1` test-split slice sampled only after the winning continuation structure had been fixed. The untouched confirmation holdout contains `32` sequences at `seq_len = 256` sampled with seed `7606`. We treat the untouched confirmation holdout as the primary basis for the strongest internal claim because it is the stricter safeguard against repeated reuse of the development slice.
 
-### 5.3 Primary Metrics
+### 5.4 Primary Metrics
 
 Primary ranking is output-first: teacher KL, then NLL, then perplexity, then top-1 agreement, then top-5 overlap. KL is ranked first because the central question is whether delegated computation reproduces the functional role of the removed large-model block relative to the frozen full-large teacher. Hidden-space MSE and cosine are reported only as diagnostics.
 
-### 5.4 Bounded Generalization
+### 5.5 Bounded Generalization
 
 For bounded external generalization, we evaluate the frozen final model and key controls on HellaSwag, PIQA, WinoGrande, ARC-Easy, ARC-Challenge, and a held-out LAMBADA slice. Multiple-choice tasks are scored by normalized conditional answer log-likelihood; the LM-style slice is scored by KL, NLL, and perplexity. Uncertainty is reported with paired bootstrap estimates against the main internal baselines. All six external tasks use deterministic bounded subsets rather than full benchmark sweeps. HellaSwag, PIQA, WinoGrande, ARC-Easy, ARC-Challenge, and LAMBADA each use `64` examples, with fixed sampling seeds `9001`, `9002`, `9003`, `9004`, `9005`, and `9010` respectively; exact sample IDs are saved in the supplementary materials.
 
@@ -184,16 +204,41 @@ The resulting token-wise two-path model beats both strong bridge controls on the
 
 ## References
 
-- Bello, F., Das, A., Zeng, F., Yin, F., and Leqi, L. 2025. *Linear Representation Transferability Hypothesis: Leveraging Small Models to Steer Large Models*. arXiv preprint arXiv:2506.00653.
+- Bello, F., Das, A., Zeng, F., Yin, F., and Liu, L. 2025. *Linear Representation Transferability Hypothesis: Leveraging Small Models to Steer Large Models*. arXiv:2506.00653.
 - Bisk, Y., Zellers, R., Gao, J., and Choi, Y. 2020. *PIQA: Reasoning about Physical Commonsense in Natural Language*. Proceedings of AAAI.
-- Chen, A., Merullo, J., Stolfo, A., and Pavlick, E. 2025. *Transferring Linear Features Across Language Models With Model Stitching*. arXiv preprint arXiv:2506.06609.
-- Clark, P., Cowhey, I., Etzioni, O., Khot, T., Sabharwal, A., Schoenick, C., and Tafjord, O. 2018. *Think You Have Solved Question Answering? Try ARC, the AI2 Reasoning Challenge*. arXiv preprint arXiv:1803.05457.
+- Chen, A., Merullo, J., Stolfo, A., and Pavlick, E. 2025. *Transferring Linear Features Across Language Models With Model Stitching*. arXiv:2506.06609.
+- Clark, P., Cowhey, I., Etzioni, O., Khot, T., Sabharwal, A., Schoenick, C., and Tafjord, O. 2018. *Think You Have Solved Question Answering? Try ARC, the AI2 Reasoning Challenge*. arXiv:1803.05457.
 - Gemma Team. 2024. *Gemma 2 Technical Report*. Technical report.
 - Paperno, D., Kruszewski, G., Lazaridou, A., et al. 2016. *The LAMBADA Dataset: Word Prediction Requiring a Broad Discourse Context*. Proceedings of ACL.
 - Sakaguchi, K., Bras, R. L., Bhagavatula, C., and Choi, Y. 2020. *WinoGrande: An Adversarial Winograd Schema Challenge at Scale*. Proceedings of AAAI.
-- Tan, Y., He, S., Liu, K., and Zhao, J. 2025. *Neural Incompatibility: The Unbridgeable Gap of Cross-Scale Parametric Knowledge Transfer in Large Language Models*. Proceedings of ACL 2025.
+- Tan, Y., He, S., Liu, K., and Zhao, J. 2025. *Neural Incompatibility: The Unbridgeable Gap of Cross-Scale Parametric Knowledge Transfer in Large Language Models*. arXiv:2505.14436.
 - Zellers, R., Bisk, Y., Schwartz, R., and Choi, Y. 2019. *HellaSwag: Can a Machine Really Finish Your Sentence?* Proceedings of ACL.
 
 ## Appendix A
 
-Appendix A enumerates the supplementary paper-facing source files, canonical tables, figure specifications, bibliography, and reproducibility materials that accompany this manuscript.
+### Adapter Training Protocol
+
+All backbone weights remain frozen, all corpora are deterministic per seed, and final checkpoints are selected by fixed step budget rather than validation-based early stopping.
+
+| run family | training pool | steps | optimizer / LR | batch policy | checkpoint selection |
+| --- | --- | --- | --- | --- | --- |
+| Phase 1 single-path shortlist | Stage A: 144 examples; Stage B: 192 examples from 128 Wikitext train snippets + 64 GSM8K train QA records | A: 200; B: 200 | AdamW, LR `3e-4` | micro-batch 1, grad accum 8, seq_len 256 | final fixed-budget checkpoint; no early stopping |
+| Static two-path mixture | same Stage B pool; paths warm-started from confirmed Phase 1 checkpoints | B: 200 | AdamW, LR `3e-4` | micro-batch 1, grad accum 8, seq_len 256 | final fixed-budget checkpoint; no early stopping |
+| Token-wise two-path routing | same Stage B pool; warm-started from static mixture; entry projectors frozen | B: 200 | AdamW, return LR `1.5e-4`, gate LR `3e-4` | micro-batch 1, grad accum 8, seq_len 256 | final fixed-budget checkpoint; no early stopping |
+
+The Wikitext training examples are sampled from non-empty Wikitext-103-v1 train records with the run seed. GSM8K training examples are sampled from the GSM8K train split with seed offset `+17`. Validation diagnostics use `32` Wikitext-103-v1 validation examples sampled with seed offset `+101`; the untouched confirmation holdout is separate and sampled from the Wikitext-103-v1 test split with seed `7606`.
+
+### Bounded Generalization Subset Policy
+
+None of these tasks uses a full benchmark sweep in the current paper. Every task uses a deterministic fixed-size subset with saved sample identifiers.
+
+| task | split | evaluation type | sample count | seed |
+| --- | --- | --- | --- | --- |
+| HellaSwag | validation | multiple choice | 64 | 9001 |
+| PIQA | validation | multiple choice | 64 | 9002 |
+| WinoGrande | validation | multiple choice | 64 | 9003 |
+| ARC-Easy | validation | multiple choice | 64 | 9004 |
+| ARC-Challenge | validation | multiple choice | 64 | 9005 |
+| LAMBADA | test | LM-style scoring | 64 | 9010 |
+
+The supplementary release also includes canonical paper tables, figure specifications, exact sample-ID files, slice definitions, and a reproducibility manifest with commit provenance, artifact roots, environment metadata, and Windows-native rerun commands.
