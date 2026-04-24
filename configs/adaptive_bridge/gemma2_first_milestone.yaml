@@ -1,0 +1,155 @@
+experiment:
+  name: adaptive_bridge_gemma2_first_milestone
+  output_root: outputs
+
+model:
+  family: gemma2
+  large_model_name: google/gemma-2-9b
+  small_model_name: google/gemma-2-2b
+  tokenizer_name: google/gemma-2-2b
+  load_in_4bit: true
+  bnb_4bit_quant_type: nf4
+  bnb_4bit_compute_dtype: bfloat16
+  torch_dtype: bfloat16
+  freeze_backbones: true
+  gradient_checkpointing: false
+  trust_remote_code: false
+  allow_qwen_fallback: false
+  debug_random_init: false
+
+split:
+  large_prefix_end: 23
+  large_removed_start: 24
+  large_removed_end: 27
+  large_suffix_start: 28
+  small_entry_target_layer: 13
+  small_delegate_start: 14
+  small_delegate_end: 19
+
+adapters:
+  entry_projector: affine
+  return_adapter_rank: 64
+  bridge_rank: 64
+  gate_init: 0.01
+  use_rmsnorm_after_entry: true
+  rms_norm_eps: 1.0e-6
+
+training:
+  seed: 42
+  seq_len: 256
+  micro_batch_size: 1
+  grad_accum_steps: 8
+  num_workers: 0
+  learning_rate: 1.5e-4
+  weight_decay: 0.0
+  max_grad_norm: 1.0
+  log_every: 10
+  stage_a:
+    max_steps: 1
+    save_every: 1
+  stage_b:
+    max_steps: 200
+    save_every: 200
+    kl_weight: 5.0
+    ce_weight: 1.0
+    delta_reg_weight: 1.0e-4
+    train_entry_projector: false
+    return_lr: 1.5e-4
+    gate_lr: 3.0e-4
+  stage_c:
+    max_steps: 0
+    save_every: 0
+    kl_weight: 0.0
+    ce_weight: 0.0
+    delta_reg_weight: 0.0
+
+data:
+  use_synthetic_data: false
+  cache_dir: outputs/cache
+  train_wikitext_examples: 128
+  train_gsm8k_examples: 64
+  val_wikitext_examples: 32
+  gsm8k_eval_examples: 0
+  strategyqa_eval_examples: 0
+  synthetic_text_repeats: 32
+
+eval:
+  max_new_tokens: 64
+  gsm8k_examples: 0
+  strategyqa_examples: 0
+  speed_prompt_tokens: 128
+  speed_decode_tokens: 32
+
+idea4:
+  paths:
+    - name: path_b
+      large_start: 24
+      large_end: 27
+      small_entry_target_layer: 13
+      small_delegate_start: 14
+      small_delegate_end: 19
+      phase1_root: artifacts/v0_6/phase1_real/stage_b/candidate_b_confirm
+    - name: path_a
+      large_start: 24
+      large_end: 27
+      small_entry_target_layer: 15
+      small_delegate_start: 16
+      small_delegate_end: 18
+      phase1_root: artifacts/v0_6/phase1_real/stage_b/candidate_a_confirm
+
+adaptive_bridge:
+  bridge_rank: 128
+  warm_start_from_v060: true
+  checkpoints:
+    warm_start_tokenwise_template: artifacts/v0_6/idea4_tokenwise/confirm/stage_b/seed_{seed}/tokenwise_mixture_checkpoint.pt
+    frozen_tokenwise_template: artifacts/v0_6/idea4_tokenwise/confirm/stage_b/seed_{seed}/tokenwise_mixture_checkpoint.pt
+  gate:
+    hidden_dim: 0
+    use_rmsnorm: true
+    entropy_reg_weight: 1.0e-4
+    prior_kl_weight: 1.0e-3
+    smoothness_weight: 0.0
+    collapse_threshold: 0.9
+    bridge_init_logit: -0.5
+  evaluation:
+    seeds: [42]
+    max_seq_len: 256
+    length_normalize_choices: true
+    internal_tasks:
+      - name: development_holdout
+        dataset_name: wikitext
+        dataset_config_name: wikitext-103-v1
+        split: validation
+        sample_count: 64
+        sampling_seed: 6101
+      - name: confirmation_holdout
+        dataset_name: wikitext
+        dataset_config_name: wikitext-103-v1
+        split: test
+        sample_count: 64
+        sampling_seed: 7606
+    lm_tasks:
+      - name: lambada_openai
+        dataset_name: EleutherAI/lambada_openai
+        dataset_config_name: null
+        split: test
+        sample_count: 200
+        sampling_seed: 9123
+    multichoice_tasks:
+      - name: piqa
+        dataset_name: piqa
+        dataset_config_name: null
+        split: validation
+        sample_count: 200
+        sampling_seed: 8123
+      - name: arc_easy
+        dataset_name: allenai/ai2_arc
+        dataset_config_name: ARC-Easy
+        split: validation
+        sample_count: 200
+        sampling_seed: 8456
+    internal_kl_tolerance: 0.02
+    internal_nll_tolerance: 0.05
+    lambada_kl_tolerance: 0.02
+    lambada_nll_tolerance: 0.05
+    multichoice_min_delta: 0.0

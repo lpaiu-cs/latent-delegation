@@ -84,3 +84,28 @@ Resolution path for this repo:
 
 Next concrete step:
 - Re-run Phase 1 on the real target machine with `configs/v0_6/gemma2_phase1.yaml`, then update `notes/v0_6/phase1_combined_decision.md` from debug-smoke status to real-candidate status.
+
+## 2026-04-24
+
+### This fork does not include the frozen `v0.6.0` token-wise checkpoints needed for the main adaptive-bridge comparison
+
+Observed in this workspace:
+- the post-paper fork contains the code and configs from the frozen tag
+- no `artifacts/v0_6/idea4_tokenwise/confirm/stage_b/seed_*/tokenwise_mixture_checkpoint.pt` files are present here
+- the new adaptive-bridge config points to those paths for:
+  - warm-start from frozen `v0.6.0`
+  - bounded evaluation against frozen `v0.6.0`
+
+Impact:
+- the adaptive-bridge code can run in debug mode and can train from scratch in this fork
+- the main research question for this fork cannot be answered fairly until the frozen `v0.6.0` reference checkpoints are available
+- the continue/stop recommendation must remain blocked if those checkpoints are absent
+
+Resolution path for this fork:
+- copy the frozen `v0.6.0` token-wise checkpoints into the configured artifact paths, or update the adaptive-bridge checkpoint templates to the real storage location
+- rerun:
+  - `powershell -ExecutionPolicy Bypass -File .\scripts\adaptive_bridge\run_train.ps1`
+  - `powershell -ExecutionPolicy Bypass -File .\scripts\adaptive_bridge\run_eval.ps1`
+
+Next concrete step:
+- make the frozen `v0.6.0` token-wise checkpoints visible at `artifacts/v0_6/idea4_tokenwise/confirm/stage_b/seed_{seed}/tokenwise_mixture_checkpoint.pt` or edit `configs/adaptive_bridge/gemma2_first_milestone.yaml` to the correct checkpoint root.

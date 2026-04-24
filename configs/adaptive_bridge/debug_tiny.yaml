@@ -1,0 +1,165 @@
+experiment:
+  name: adaptive_bridge_debug_tiny
+  output_root: outputs
+
+model:
+  family: gemma2
+  large_model_name: debug/gemma2-large-tiny
+  small_model_name: debug/gemma2-small-tiny
+  tokenizer_name: debug/simple-tokenizer
+  load_in_4bit: false
+  bnb_4bit_quant_type: nf4
+  bnb_4bit_compute_dtype: float32
+  torch_dtype: float32
+  freeze_backbones: true
+  gradient_checkpointing: false
+  trust_remote_code: false
+  allow_qwen_fallback: false
+  debug_random_init: true
+  debug_large_hidden_size: 96
+  debug_large_intermediate_size: 192
+  debug_large_num_attention_heads: 8
+  debug_large_num_key_value_heads: 4
+  debug_small_hidden_size: 64
+  debug_small_intermediate_size: 128
+  debug_small_num_attention_heads: 8
+  debug_small_num_key_value_heads: 4
+  debug_vocab_size: 320
+  debug_max_position_embeddings: 512
+
+split:
+  large_prefix_end: 23
+  large_removed_start: 24
+  large_removed_end: 27
+  large_suffix_start: 28
+  small_entry_target_layer: 13
+  small_delegate_start: 14
+  small_delegate_end: 19
+
+adapters:
+  entry_projector: affine
+  return_adapter_rank: 16
+  bridge_rank: 16
+  gate_init: 0.01
+  use_rmsnorm_after_entry: true
+  rms_norm_eps: 1.0e-6
+
+training:
+  seed: 42
+  seq_len: 32
+  micro_batch_size: 2
+  grad_accum_steps: 1
+  num_workers: 0
+  learning_rate: 1.0e-3
+  weight_decay: 0.0
+  max_grad_norm: 1.0
+  log_every: 1
+  stage_a:
+    max_steps: 1
+    save_every: 1
+  stage_b:
+    max_steps: 2
+    save_every: 1
+    kl_weight: 1.0
+    ce_weight: 1.0
+    delta_reg_weight: 1.0e-3
+    train_entry_projector: false
+    return_lr: 1.0e-3
+    gate_lr: 1.0e-3
+  stage_c:
+    max_steps: 0
+    save_every: 0
+    kl_weight: 0.0
+    ce_weight: 0.0
+    delta_reg_weight: 0.0
+
+data:
+  use_synthetic_data: true
+  cache_dir: outputs/cache
+  train_wikitext_examples: 16
+  train_gsm8k_examples: 8
+  val_wikitext_examples: 8
+  gsm8k_eval_examples: 8
+  strategyqa_eval_examples: 8
+  synthetic_text_repeats: 16
+
+eval:
+  max_new_tokens: 8
+  gsm8k_examples: 8
+  strategyqa_examples: 8
+  speed_prompt_tokens: 16
+  speed_decode_tokens: 4
+
+idea4:
+  paths:
+    - name: path_b
+      large_start: 24
+      large_end: 27
+      small_entry_target_layer: 13
+      small_delegate_start: 14
+      small_delegate_end: 19
+      phase1_root: outputs/debug_unused/path_b
+    - name: path_a
+      large_start: 24
+      large_end: 27
+      small_entry_target_layer: 15
+      small_delegate_start: 16
+      small_delegate_end: 18
+      phase1_root: outputs/debug_unused/path_a
+
+adaptive_bridge:
+  bridge_rank: 16
+  warm_start_from_v060: false
+  checkpoints:
+    warm_start_tokenwise_template: null
+    frozen_tokenwise_template: null
+  gate:
+    hidden_dim: 0
+    use_rmsnorm: true
+    entropy_reg_weight: 1.0e-4
+    prior_kl_weight: 1.0e-3
+    smoothness_weight: 0.0
+    collapse_threshold: 0.9
+    bridge_init_logit: -0.5
+  evaluation:
+    seeds: [42]
+    max_seq_len: 32
+    length_normalize_choices: true
+    internal_tasks:
+      - name: development_holdout
+        dataset_name: synthetic
+        dataset_config_name: null
+        split: validation
+        sample_count: 2
+        sampling_seed: 101
+      - name: confirmation_holdout
+        dataset_name: synthetic
+        dataset_config_name: null
+        split: test
+        sample_count: 2
+        sampling_seed: 202
+    lm_tasks:
+      - name: lambada_openai
+        dataset_name: synthetic
+        dataset_config_name: null
+        split: test
+        sample_count: 2
+        sampling_seed: 303
+    multichoice_tasks:
+      - name: piqa
+        dataset_name: synthetic
+        dataset_config_name: null
+        split: validation
+        sample_count: 2
+        sampling_seed: 404
+      - name: arc_easy
+        dataset_name: synthetic
+        dataset_config_name: null
+        split: validation
+        sample_count: 2
+        sampling_seed: 505
+    internal_kl_tolerance: 0.5
+    internal_nll_tolerance: 0.5
+    lambada_kl_tolerance: 0.5
+    lambada_nll_tolerance: 0.5
+    multichoice_min_delta: 0.0

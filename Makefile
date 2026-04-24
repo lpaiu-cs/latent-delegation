@@ -1,8 +1,9 @@
-PYTHON ?= python3.11
+PYTHON ?= py -3.12
 PIP := $(PYTHON) -m pip
-CONFIG ?= configs/gemma2_conservative.yaml
+CONFIG ?= configs/adaptive_bridge/gemma2_first_milestone.yaml
+DEBUG_CONFIG ?= configs/adaptive_bridge/debug_tiny.yaml
 
-.PHONY: install test smoke stage_a stage_b stage_c eval format
+.PHONY: install test adaptive_smoke adaptive_train adaptive_eval format
 
 install:
 	$(PYTHON) -m pip install --upgrade pip
@@ -11,20 +12,14 @@ install:
 test:
 	$(PYTHON) -m pytest -q
 
-smoke:
-	PYTHON_BIN=$(PYTHON) ./scripts/smoke_test.sh
+adaptive_smoke:
+	powershell -ExecutionPolicy Bypass -File .\scripts\adaptive_bridge\run_debug_smoke.ps1 -Config "$(DEBUG_CONFIG)"
 
-stage_a:
-	./scripts/run_stage_a.sh $(CONFIG)
+adaptive_train:
+	powershell -ExecutionPolicy Bypass -File .\scripts\adaptive_bridge\run_train.ps1 -Config "$(CONFIG)"
 
-stage_b:
-	./scripts/run_stage_b.sh $(CONFIG)
-
-stage_c:
-	./scripts/run_stage_c.sh $(CONFIG)
-
-eval:
-	./scripts/run_eval_all.sh $(CONFIG)
+adaptive_eval:
+	powershell -ExecutionPolicy Bypass -File .\scripts\adaptive_bridge\run_eval.ps1 -Config "$(CONFIG)"
 
 format:
 	$(PYTHON) -m compileall src tests
