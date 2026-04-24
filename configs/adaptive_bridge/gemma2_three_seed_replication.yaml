@@ -1,5 +1,5 @@
 experiment:
-  name: adaptive_bridge_gemma2_first_milestone
+  name: adaptive_bridge_gemma2_three_seed_replication
   output_root: outputs
 
 model:
@@ -113,7 +113,7 @@ adaptive_bridge:
     collapse_threshold: 0.9
     bridge_init_logit: -0.5
   evaluation:
-    seeds: [42]
+    seeds: [42, 43, 44]
     max_seq_len: 256
     length_normalize_choices: true
     internal_tasks:

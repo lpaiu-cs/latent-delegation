@@ -8,6 +8,7 @@ from src.adaptive_bridge.common import (
     adaptive_bridge_trainable_prefixes,
     clone_config_with_seed,
     matched_bridge_rank,
+    require_warm_start_checkpoints,
 )
 from src.adaptive_bridge.models import (
     BridgeAwareResidualMoE,
@@ -24,4 +25,5 @@ __all__ = [
     "adaptive_bridge_trainable_prefixes",
     "clone_config_with_seed",
     "matched_bridge_rank",
+    "require_warm_start_checkpoints",
 ]

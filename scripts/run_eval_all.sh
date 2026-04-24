@@ -4,7 +4,7 @@ set -euo pipefail
 CONFIG_PATH="${1:-configs/gemma2_conservative.yaml}"
 STAGE_A_CHECKPOINT="${2:-}"
 STAGE_B_CHECKPOINT="${3:-}"
-PYTHON_BIN="${PYTHON_BIN:-python3.11}"
+PYTHON_BIN="${PYTHON_BIN:-python3.12}"
 
 for variant in full_large skip_only bridge_only hybrid; do
   ARGS=(--config "${CONFIG_PATH}" --variant "${variant}")

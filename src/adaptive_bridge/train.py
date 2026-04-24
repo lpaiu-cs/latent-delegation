@@ -19,6 +19,7 @@ from src.adaptive_bridge.common import (
     clone_config_with_seed,
     matched_bridge_rank,
     maybe_load_checkpoint,
+    require_warm_start_checkpoints,
 )
 from src.adaptive_bridge.models import BridgeAwareResidualMoE, BridgeAwareResidualMoENoSmall
 from src.eval.metrics import masked_hidden_cosine_loss, masked_hidden_mse, shifted_cross_entropy, shifted_kl_divergence
@@ -533,6 +534,13 @@ def main() -> None:
             "gate_settings": adaptive_bridge_gate_settings(config).__dict__,
         },
     )
+
+    missing_warm_starts = require_warm_start_checkpoints(config, seed_values)
+    if missing_warm_starts:
+        raise FileNotFoundError(
+            "Required warm-start checkpoints are missing for this real run: "
+            + ", ".join(missing_warm_starts)
+        )
 
     backbones = load_backbones(config, load_large=True, load_small=True, load_tokenizer=True)
     parameter_budget = _parameter_budget_summary(config, backbones, path_specs)

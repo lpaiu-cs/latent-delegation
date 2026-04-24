@@ -46,6 +46,7 @@ class AdaptiveBridgeSettings:
 
     bridge_rank: int
     warm_start_from_v060: bool
+    require_warm_start_checkpoint: bool
     warm_start_template: str | None
     frozen_tokenwise_template: str | None
     frozen_bridge_template: str | None
@@ -105,6 +106,7 @@ def adaptive_bridge_settings(config: ExperimentConfig) -> AdaptiveBridgeSettings
     return AdaptiveBridgeSettings(
         bridge_rank=int(raw.get("bridge_rank", config.adapters.bridge_rank)),
         warm_start_from_v060=bool(raw.get("warm_start_from_v060", False)),
+        require_warm_start_checkpoint=bool(raw.get("require_warm_start_checkpoint", False)),
         warm_start_template=(
             None if checkpoints.get("warm_start_tokenwise_template") in {None, "", "null"} else str(checkpoints["warm_start_tokenwise_template"])
         ),
@@ -214,3 +216,17 @@ def maybe_load_checkpoint(path: Path | None, device: torch.device) -> dict[str, 
     if path is None or not path.exists():
         return None
     return load_checkpoint(path, device)
+
+
+def require_warm_start_checkpoints(config: ExperimentConfig, seeds: list[int]) -> list[str]:
+    """Validate that required warm-start checkpoints exist for every requested seed."""
+
+    settings = adaptive_bridge_settings(config)
+    if not settings.warm_start_from_v060 or not settings.require_warm_start_checkpoint:
+        return []
+    missing: list[str] = []
+    for seed in seeds:
+        path = checkpoint_path_from_template(settings.warm_start_template, seed)
+        if path is None or not path.exists():
+            missing.append("None" if path is None else str(path))
+    return missing

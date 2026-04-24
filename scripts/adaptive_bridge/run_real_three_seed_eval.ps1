@@ -1,7 +1,7 @@
 param(
-    [string]$Config = "configs/adaptive_bridge/gemma2_first_milestone.yaml",
-    [string]$TrainDir = "outputs/adaptive_bridge/train",
-    [string]$OutputDir = "outputs/adaptive_bridge/eval"
+    [string]$Config = "configs/adaptive_bridge/gemma2_three_seed_replication.yaml",
+    [string]$TrainDir = "outputs/adaptive_bridge/real_seed42_43_44_warm_start/train",
+    [string]$OutputDir = "outputs/adaptive_bridge/real_seed42_43_44_warm_start/eval"
 )
 
 $ErrorActionPreference = "Stop"

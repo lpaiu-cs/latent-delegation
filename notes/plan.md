@@ -1,5 +1,34 @@
 # Plan
 
+## Fork status as of `2026-04-24`
+
+The post-paper adaptive-bridge fork has completed its first bounded milestone and a 3-seed replication.
+
+- seed-42 warm-start real training completed from the frozen `v0.6.0` token-wise checkpoint family
+- 3-seed replication completed for seeds `42/43/44`
+- bounded evaluation completed on:
+  - development holdout
+  - confirmation holdout
+  - LAMBADA
+  - PIQA
+  - ARC-Easy
+- current decision:
+  - `continue_adaptive_bridge`
+
+Decision basis:
+
+- internal KL/NLL preserved relative to frozen `v0.6.0` in the 3-seed aggregate
+- LAMBADA KL/NLL preserved relative to frozen `v0.6.0` in the 3-seed aggregate
+- `PIQA` recovered over both bridge baselines in the 3-seed aggregate
+- `ARC-Easy` did not recover
+
+Immediate next step, without widening scope:
+
+- keep the same three-expert budget and no-small adaptive control
+- keep the evaluation suite fixed
+- treat `ARC-Easy` as the primary unresolved weakness
+- if the fork continues, spend the next pilot on a small gate or bridge calibration rather than adding experts, adding Stage C, or widening the benchmark suite
+
 ## Default architecture
 
 Default v1 target:
@@ -143,7 +172,7 @@ The smoke script will:
 - Do not rewrite the architecture to depend on unsupported generation-cache internals.
 
 3. Local environment / dependency ABI issues
-- Pin a Python 3.11 environment in `requirements.txt`.
+- Pin a Python 3.12 environment in the repo entrypoints and workspace marker.
 - Run tests and smoke in an isolated `.venv`.
 - Record the exact mismatch in `notes/blockers.md` if it affects the current machine.
 
@@ -164,7 +193,7 @@ The smoke script will:
 4. Implement Stage A/B/C CLIs.
 5. Implement minimal data pipeline and eval scripts.
 6. Add tests and smoke script.
-7. Run the debug smoke path in a clean Python 3.11 environment.
+7. Run the debug smoke path in a clean Python 3.12 environment.
 
 ## Memory Topology Audit
 

@@ -1,27 +1,29 @@
 # Adaptive Bridge Fairness Audit
 
-This note is the audit frame for the first adaptive-bridge milestone.
+Date: `2026-04-24`
 
-## Fixed Comparison Rules
+## Fixed Comparison Rules Used
 
-- Same-family backbones only:
+- same-family backbones only:
   - `google/gemma-2-9b`
   - `google/gemma-2-2b`
-- Frozen backbones only
-- Same large removed window for every compared model:
+- frozen backbones only
+- same large removed window for every compared model:
   - `24..27`
-- Same delegated path set for every adaptive model:
+- same delegated path set for every adaptive model:
   - path B: `24..27 -> 14..19`
   - path A: `24..27 -> 16..18`
-- No Stage C
-- Same bounded task suite only:
+- no Stage C
+- same bounded task suite only:
   - development holdout
   - confirmation holdout
   - LAMBADA
   - PIQA
   - ARC-Easy
-- Same tokenizer family and same max sequence length within one run
-- No prompt retuning across models inside the bounded evaluation
+- same replication seed set:
+  - `42`
+  - `43`
+  - `44`
 
 ## Compared Models
 
@@ -31,38 +33,81 @@ This note is the audit frame for the first adaptive-bridge milestone.
 - `adaptive_bridge_no_small`
 - `adaptive_bridge_moe`
 
-## Parameter Budget Checklist
+## Parameter Budget Readout
 
-Fill from:
+Source:
+- `outputs/adaptive_bridge/real_seed42_43_44_warm_start/train/results.json`
 
-- `outputs/adaptive_bridge/train/results.json`
-- `outputs/adaptive_bridge/train/diagnostics.json`
+Recorded values:
 
-Record:
+- `frozen_v060_tokenwise_trainable_params`: `764418`
+- `adaptive_bridge_moe_trainable_params`: `1685507`
+- `adaptive_bridge_no_small_trainable_params`: `1685507`
+- `bridge_only_strong_rank`: `128`
+- `bridge_only_strong_trainable_params`: `917505`
+- `bridge_only_param_matched_rank`: `235`
+- `bridge_only_param_matched_trainable_params`: `1684481`
 
-- `frozen_v060_tokenwise_trainable_params`
-- `adaptive_bridge_moe_trainable_params`
-- `adaptive_bridge_no_small_trainable_params`
-- `bridge_only_strong_rank`
-- `bridge_only_strong_trainable_params`
-- `bridge_only_param_matched_rank`
-- `bridge_only_param_matched_trainable_params`
+Interpretation:
+
+- `bridge_only_param_matched` is the fair budget-matched large-only comparison for the adaptive MoE
+- `bridge_only_strong` is a stronger but smaller-parameter bridge control
 
 ## Warm-Start Audit
 
-Warm-start is allowed only from the frozen `v0.6.0` token-wise delegated path modules.
+Warm-start source:
+- `artifacts/v0_6/idea4_tokenwise/confirm/stage_b/seed_42/tokenwise_mixture_checkpoint.pt`
+- `artifacts/v0_6/idea4_tokenwise/confirm/stage_b/seed_43/tokenwise_mixture_checkpoint.pt`
+- `artifacts/v0_6/idea4_tokenwise/confirm/stage_b/seed_44/tokenwise_mixture_checkpoint.pt`
 
-Record:
+Recorded status:
 
-- whether warm-start was enabled
-- exact checkpoint path template
-- whether each seed actually loaded the checkpoint
-- whether the frozen comparison checkpoint existed at eval time
+- `adaptive_bridge_moe`: `loaded` for seeds `42/43/44`
+- `adaptive_bridge_no_small`: `loaded` for seeds `42/43/44`
+- `frozen_v060_tokenwise` comparison checkpoints: `loaded` for seeds `42/43/44`
 
-If the frozen reference checkpoint is missing, the main continue/stop decision is blocked and must be stated explicitly.
+Interpretation:
 
-## Interpretation Guardrails
+- the 3-seed replication used true warm starts for every seed
+- the evaluation used the same frozen `v0.6.0` token-wise checkpoint family rather than a scratch proxy
 
-- A gain on PIQA or ARC-Easy does not count if internal KL/NLL or LAMBADA materially regress versus frozen `v0.6.0`.
-- A no-small gain does not count as delegation evidence.
-- If the adaptive model beats bridge baselines but cannot be compared to frozen `v0.6.0`, the result is promising but incomplete.
+## Dataset Audit
+
+Internal and LM-style tasks used the configured public datasets directly.
+
+For PIQA:
+
+- configured dataset id used in the final run: `nthngdy/piqa`
+- reason: the legacy `piqa` dataset-script entry now fails in the installed `datasets` version with `RuntimeError: Dataset scripts are no longer supported, but found piqa.py`
+
+ARC-Easy used:
+
+- `allenai/ai2_arc`
+- config: `ARC-Easy`
+
+LAMBADA used:
+
+- `EleutherAI/lambada_openai`
+
+## Decision-Relevant Findings
+
+- internal dev KL/NLL preserved relative to frozen `v0.6.0` in the 3-seed aggregate
+- internal confirmation KL/NLL preserved relative to frozen `v0.6.0` in the 3-seed aggregate
+- LAMBADA KL/NLL preserved relative to frozen `v0.6.0` in the 3-seed aggregate
+- `PIQA` recovered over both bridge baselines in the 3-seed aggregate:
+  - `adaptive_bridge_moe`: `0.785000`
+  - `bridge_only_param_matched`: `0.778333`
+  - `bridge_only_strong`: `0.776667`
+- `ARC-Easy` did not recover over bridge baselines in the 3-seed aggregate:
+  - `adaptive_bridge_moe`: `0.805000`
+  - `bridge_only_param_matched`: `0.818333`
+  - `bridge_only_strong`: `0.813333`
+- the no-small adaptive control underperformed the adaptive MoE on `PIQA`
+
+## Audit Conclusion
+
+The first bounded milestone and its 3-seed replication are fair enough to support a bounded continuation decision.
+
+Current decision:
+
+- `continue adaptive-bridge`

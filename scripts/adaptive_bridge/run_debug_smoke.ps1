@@ -15,6 +15,10 @@ py -3.12 -m src.adaptive_bridge.train `
     --summary-path "$TrainDir/summary.csv" `
     --diagnostics-path "$TrainDir/diagnostics.json"
 
+if ($LASTEXITCODE -ne 0) {
+    exit $LASTEXITCODE
+}
+
 py -3.12 -m src.adaptive_bridge.evaluate `
     --config $Config `
     --train-dir $TrainDir `
@@ -22,3 +26,7 @@ py -3.12 -m src.adaptive_bridge.evaluate `
     --results-path "$EvalDir/results.json" `
     --summary-path "$EvalDir/summary.csv" `
     --report-path "$EvalDir/summary_note.md"
+
+if ($LASTEXITCODE -ne 0) {
+    exit $LASTEXITCODE
+}

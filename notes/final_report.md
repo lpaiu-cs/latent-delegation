@@ -1,5 +1,62 @@
 # Final Report
 
+## Post-Paper Adaptive Bridge Addendum
+
+Date: `2026-04-24`
+
+## Adaptive-Bridge Milestone 1
+
+Adaptive-bridge milestone 1 is a bounded positive continuation result, not a new canonical best model.
+
+- internal LM-style strengths are preserved relative to frozen `v0.6.0`
+- `PIQA` is recovered over both bridge baselines
+- `ARC-Easy` remains unresolved
+- this milestone does not replace frozen `v0.6.0` as the repo-wide canonical reference
+
+This report remains the historical summary for the frozen paper repo state. The paper result itself is still frozen at `v0.6.0`.
+
+The post-paper fork `latent-delegation-adaptive-bridge` adds a bounded continuation test rather than replacing the paper claim. Its completed bounded milestone and 3-seed replication used:
+
+- same-family frozen backbones only:
+  - `google/gemma-2-9b`
+  - `google/gemma-2-2b`
+- exactly three experts:
+  - strong bridge expert
+  - delegated path B: `24..27 -> 14..19`
+  - delegated path A: `24..27 -> 16..18`
+- one matched no-small adaptive control
+- no Stage C
+- bounded evaluation only:
+  - development holdout
+  - confirmation holdout
+  - LAMBADA
+  - PIQA
+  - ARC-Easy
+
+Completed outcome from:
+
+- `outputs/adaptive_bridge/real_seed42_warm_start/train/`
+- `outputs/adaptive_bridge/real_seed42_warm_start/eval/`
+- `outputs/adaptive_bridge/real_seed42_43_44_warm_start/train/`
+- `outputs/adaptive_bridge/real_seed42_43_44_warm_start/eval/`
+
+Result:
+
+- internal KL/NLL preserved relative to frozen `v0.6.0`
+- LAMBADA KL/NLL preserved relative to frozen `v0.6.0`
+- `PIQA` recovered over both bridge baselines in the 3-seed aggregate
+- `ARC-Easy` did not recover
+
+Current fork recommendation:
+
+- `continue adaptive-bridge`
+
+Current claim boundary for this fork:
+
+- this is positive but still bounded evidence
+- this is now stronger than a `1`-seed result, but still limited to the fixed `42/43/44` seed set and bounded task suite
+- the result supports continuing the fork, not replacing the frozen paper result
+
 ## Frozen Repo State
 
 - `v0.6.0` is the frozen current best model/result in this repo.

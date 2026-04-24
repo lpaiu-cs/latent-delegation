@@ -13,3 +13,7 @@ py -3.12 -m src.adaptive_bridge.train `
     --results-path "$OutputDir/results.json" `
     --summary-path "$OutputDir/summary.csv" `
     --diagnostics-path "$OutputDir/diagnostics.json"
+
+if ($LASTEXITCODE -ne 0) {
+    exit $LASTEXITCODE
+}

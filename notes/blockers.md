@@ -13,12 +13,12 @@ Impact:
 - The system Python environment is not a reliable base for running this repo as-is.
 
 Resolution path for this repo:
-- Use a clean Python `3.11` virtual environment
+- Use a clean Python `3.12` virtual environment
 - Pin compatible package versions in `requirements.txt`
 - Run smoke tests and local commands inside that isolated environment
 
 Next concrete step:
-- Create `.venv` with `python3.11`, install the pinned requirements, and use that environment for validation.
+- Create `.venv` with `python3.12`, install the pinned requirements, and use that environment for validation.
 
 ### Gemma Hugging Face access is gated on this machine
 
@@ -87,7 +87,7 @@ Next concrete step:
 
 ## 2026-04-24
 
-### This fork does not include the frozen `v0.6.0` token-wise checkpoints needed for the main adaptive-bridge comparison
+### Historical: this fork initially lacked the frozen `v0.6.0` token-wise checkpoints needed for the main adaptive-bridge comparison
 
 Observed in this workspace:
 - the post-paper fork contains the code and configs from the frozen tag
@@ -96,10 +96,10 @@ Observed in this workspace:
   - warm-start from frozen `v0.6.0`
   - bounded evaluation against frozen `v0.6.0`
 
-Impact:
-- the adaptive-bridge code can run in debug mode and can train from scratch in this fork
-- the main research question for this fork cannot be answered fairly until the frozen `v0.6.0` reference checkpoints are available
-- the continue/stop recommendation must remain blocked if those checkpoints are absent
+Impact at that time:
+- the adaptive-bridge code could run in debug mode and could train from scratch in this fork
+- the main research question for this fork could not be answered fairly until the frozen `v0.6.0` reference checkpoints were available
+- the continue/stop recommendation remained blocked while those checkpoints were absent
 
 Resolution path for this fork:
 - copy the frozen `v0.6.0` token-wise checkpoints into the configured artifact paths, or update the adaptive-bridge checkpoint templates to the real storage location
@@ -107,5 +107,79 @@ Resolution path for this fork:
   - `powershell -ExecutionPolicy Bypass -File .\scripts\adaptive_bridge\run_train.ps1`
   - `powershell -ExecutionPolicy Bypass -File .\scripts\adaptive_bridge\run_eval.ps1`
 
-Next concrete step:
+Historical next concrete step:
 - make the frozen `v0.6.0` token-wise checkpoints visible at `artifacts/v0_6/idea4_tokenwise/confirm/stage_b/seed_{seed}/tokenwise_mixture_checkpoint.pt` or edit `configs/adaptive_bridge/gemma2_first_milestone.yaml` to the correct checkpoint root.
+
+### Historical validation: the 1-seed warm-start real run failed fast before the checkpoint was restored
+
+Observed via:
+- `powershell -ExecutionPolicy Bypass -File .\scripts\adaptive_bridge\run_real_warm_start_seed42.ps1`
+
+Exact failure:
+- `FileNotFoundError: Required warm-start checkpoints are missing for this real run: artifacts\v0_6\idea4_tokenwise\confirm\stage_b\seed_42\tokenwise_mixture_checkpoint.pt`
+
+Impact at that time:
+- the requested 1-seed real run had been wired and attempted
+- the current blocker was explicit and reproducible
+- the run did not silently degrade into a non-warm-start scratch run
+
+Historical next concrete step:
+- place the frozen seed-42 token-wise checkpoint at `artifacts\v0_6\idea4_tokenwise\confirm\stage_b\seed_42\tokenwise_mixture_checkpoint.pt`, then rerun the same PowerShell entrypoint
+
+### Resolved: seed-42 frozen checkpoint path is now live in this fork
+
+Observed in this workspace:
+- the frozen reference checkpoint now exists at:
+  - `artifacts/v0_6/idea4_tokenwise/confirm/stage_b/seed_42/tokenwise_mixture_checkpoint.pt`
+- the source paper-repo checkpoint was read from:
+  - `E:/lab/latent-delegation/artifacts/v0_6/idea4_tokenwise/confirm/stage_b/seed_42/tokenwise_mixture_checkpoint.pt`
+- the original paper repo was not modified
+
+Current impact:
+- the first adaptive-bridge milestone is no longer blocked on the frozen `v0.6.0` checkpoint path
+- the seed-42 warm-start run and bounded evaluation are reproducible from this fork-local path
+
+Next concrete step:
+- keep using the fork-local checkpoint path for future replications so the paper repo remains frozen
+
+### Active repo standard is now Python 3.12
+
+Current repo state:
+- active PowerShell runners are standardized on `py -3.12`
+- active shell defaults are standardized on `python3.12`
+- `.python-version` is set to `3.12`
+
+Interpretation:
+- older 3.11 wording in historical notes should be treated as superseded
+- current repo bring-up and validation should use Python 3.12 unless a new blocker is recorded
+
+### Legacy `piqa` dataset-script entry is incompatible with the current `datasets` stack on this machine
+
+Observed via the first bounded eval attempt:
+- `load_dataset("piqa", split="validation")` failed with:
+  - `RuntimeError: Dataset scripts are no longer supported, but found piqa.py`
+
+Resolution used for the completed seed-42 bounded eval:
+- switch the adaptive-bridge config to the mirror dataset id `nthngdy/piqa`
+- keep task formatting the same:
+  - fields `goal`, `sol1`, `sol2`, `label`
+
+Impact:
+- bounded eval was completed without changing the benchmark family
+- reproducibility now depends on the mirror dataset id rather than the legacy script-backed `piqa` entry
+
+### Current first-milestone status
+
+Observed in this workspace:
+- `outputs/adaptive_bridge/real_seed42_warm_start/train/results.json` exists
+- `outputs/adaptive_bridge/real_seed42_warm_start/eval/results.json` exists
+- `outputs/adaptive_bridge/real_seed42_43_44_warm_start/train/results.json` exists
+- `outputs/adaptive_bridge/real_seed42_43_44_warm_start/eval/results.json` exists
+- the evaluation recommendation is:
+  - `continue_adaptive_bridge`
+
+Interpretation:
+- there is no active blocker for the first seed-42 milestone deliverables in this workspace
+- there is also no active blocker for the current 3-seed replication deliverables in this workspace
+- remaining issues are research risks, not execution blockers:
+  - `ARC-Easy` not recovered
